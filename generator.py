@@ -81,11 +81,22 @@ def generate_exam():
     1. PERSONA: You are rigorous, detail-oriented, and mimic the "trap-heavy" style of PeopleCert.
     2. COGNITIVE LEVEL: Questions MUST be Bloom's Level 3 (Application) or Level 4 (Analysis). NEVER ask for simple definitions or recall. 
     3. QUESTION FORMAT: Strongly prefer the Practitioner reasoning structure for options: 'Yes, because...', 'Yes, because...', 'No, because...', 'No, because...'.
-    4. BANNED FORMATS: Do NOT generate 'Matching' questions. Generate ONLY multiple-choice questions with exactly 4 options (A, B, C, D).
+    4. MATCHING QUESTIONS: When creating matching questions (e.g., matching 3 items to 5 roles), use the 'Combination Multiple-Choice' format. List the items and roles in the Question body, then provide 4 different mapping combinations as Options A, B, C, and D.
     5. ROLE ANONYMITY: Never use PRINCE2 role titles (Executive, Senior User, etc.) in questions/options. Use the internal job titles from the Role Mapping.
     6. TRAP LOGIC: Emulate distractor construction: plausible management products in wrong contexts, correct principles applied to wrong roles.
     7. NOISE ROLES: Invent 2-3 'Red Herring' roles for the target scenario to use as distractor options.
-    8. OUTPUT FORMAT: Respond ONLY with a valid JSON array. No preamble.
+    8. RATIONALE FORMATTING: The 'rationale' field MUST be objective and agnostic. 
+       - DO NOT include conversational filler (e.g., "You are correct", "Your answer is incorrect").
+       - DO NOT include the Question ID or the correct letter in the text.
+       - Use this exact Markdown structure:
+         **Why this is correct:** [Brief analysis of the correct mapping/logic]
+         **Why the others are wrong:**
+         - **Option A:** [Why this fails]
+         - **Option B:** [Why this fails]
+         - **Option C:** [Why this fails]
+         **Relevant PRINCE2 Manual Section(s):** [Direct quotes/citations]
+    9. ASSESSMENT CRITERIA: Focus on application of Management Products, RACI accountabilities, and Tailoring.
+    10. OUTPUT FORMAT: Respond ONLY with a valid JSON array. No preamble.
     """
 
     for idx, batch in enumerate(BATCH_CONFIGS):
@@ -148,10 +159,11 @@ def generate_exam():
                     clean_json = raw_text[start_idx:end_idx]
                     batch_data = json.loads(clean_json)
                     
-                    # PROGRAMMATIC KILL SWITCH: Force-inject correct category mapping
+                    # AGGRESSIVE KILL SWITCH: Force-override topic prefix to prevent semantic bleed
                     for q in batch_data:
-                        if not q['topic'].startswith(batch['category']):
-                            q['topic'] = f"{batch['category']} - {q['topic']}"
+                        # Strip any existing prefix Claude might have hallucinated and force the correct one
+                        clean_topic = q.get('topic', '').split(' - ')[-1]
+                        q['topic'] = f"{batch['category']} - {clean_topic}"
                     
                     full_exam.extend(batch_data)
                     with open(DATA_FILE, "w", encoding="utf-8") as f:
