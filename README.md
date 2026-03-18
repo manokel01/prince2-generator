@@ -18,6 +18,8 @@ This tool transforms a raw business scenario into a 70-mark mock exam. It uses R
     
 -   **Cognitive Depth:** Generates questions at Bloom's Taxonomy Levels 3 (Application) and 4 (Analysis), focusing on situational reasoning rather than simple recall.
     
+-   **Programmatic Guardrails (Kill Switch):** Python-level post-processing physically intercepts the LLM's JSON output to forcefuly map sequence categories, completely eliminating cross-batch knowledge bleed and guaranteeing sequence integrity.
+    
 -   **Auto-Recovery & Resilience:** Built-in "Wait and Retry" logic specifically designed for Tier 1 API limits. The script automatically catches rate-limit errors, pauses for 65 seconds, and retries the batch without losing progress.
     
 -   **Syllabus-Targeted Auditing:** The `auditor.py` script performs a sequence integrity check, ensuring questions appear in the correct chronological order as they do in the official manual.
@@ -48,7 +50,7 @@ This tool transforms a raw business scenario into a 70-mark mock exam. It uses R
     
 -   **Mathematical Chunking:** The official manual is sliced into 9 strictly-sized chunks (<115KB) to respect Tier 1 LLM token limits and maintain high-precision context windows.
     
--   **Stateful Generation:** Powered by Claude 3.5 Sonnet. Uses a 16-batch architecture with 65s rate-limit mitigation and automatic XML-categorized state checkpointing to `exam_data.json`.
+-   **Stateful Generation:** Powered by Claude 4.6 Sonnet. Uses a 16-batch architecture with 65s rate-limit mitigation and automatic XML-categorized state checkpointing to `exam_data.json`.
     
 -   **Validation Engine:** An independent auditor script enforces a strict A-D schema and automatically repairs hallucinated JSON structures.
     
