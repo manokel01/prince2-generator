@@ -11,28 +11,28 @@ client = Anthropic(
     timeout=180.0
 )
 
-# RE-BALANCED BATCHES (Total: 70 Questions - Official PRINCE2 v7 Weights)
+# RE-BALANCED BATCHES WITH STRICT PROGRAMMATIC GUARDRAILS
 BATCH_CONFIGS = [
-    {"name": "B1: Intro", "files": ["01_intro_principles.md"], "count": 7},
-    {"name": "B2: People", "files": ["02_people.md"], "count": 6},
+    {"name": "B1: Intro", "files": ["01_intro_principles.md"], "count": 7, "category": "Intro/Principles", "focus": "Introduction and the 7 Principles. DO NOT generate questions about Practices, Processes, or People."},
+    {"name": "B2: People", "files": ["02_people.md"], "count": 6, "category": "People", "focus": "People, Team Management, Communication, and Stakeholders. DO NOT generate questions about Practices or Processes."},
     
-    # 51% Practices = 36 Questions
-    {"name": "B3: Prac P1-A", "files": ["03_practices_p1.md"], "count": 5},
-    {"name": "B4: Prac P1-B", "files": ["03_practices_p1.md"], "count": 4},
-    {"name": "B5: Prac P2-A", "files": ["04_practices_p2.md"], "count": 5},
-    {"name": "B6: Prac P2-B", "files": ["04_practices_p2.md"], "count": 4},
-    {"name": "B7: Prac P3-A", "files": ["05_practices_p3.md"], "count": 5},
-    {"name": "B8: Prac P3-B", "files": ["05_practices_p3.md"], "count": 4},
-    {"name": "B9: Prac P4-A", "files": ["06_practices_p4.md"], "count": 5},
-    {"name": "B10: Prac P4-B", "files": ["06_practices_p4.md"], "count": 4},
+    # Practices
+    {"name": "B3: Prac P1-A", "files": ["03_practices_p1.md"], "count": 5, "category": "Practices", "focus": "Practices (e.g., Business Case, Organizing). DO NOT generate questions about Processes."},
+    {"name": "B4: Prac P1-B", "files": ["03_practices_p1.md"], "count": 4, "category": "Practices", "focus": "Practices (e.g., Business Case, Organizing). DO NOT generate questions about Processes."},
+    {"name": "B5: Prac P2-A", "files": ["04_practices_p2.md"], "count": 5, "category": "Practices", "focus": "Practices (e.g., Quality, Plans). DO NOT generate questions about Processes."},
+    {"name": "B6: Prac P2-B", "files": ["04_practices_p2.md"], "count": 4, "category": "Practices", "focus": "Practices (e.g., Quality, Plans). DO NOT generate questions about Processes."},
+    {"name": "B7: Prac P3-A", "files": ["05_practices_p3.md"], "count": 5, "category": "Practices", "focus": "Practices (e.g., Risk). DO NOT generate questions about Processes."},
+    {"name": "B8: Prac P3-B", "files": ["05_practices_p3.md"], "count": 4, "category": "Practices", "focus": "Practices (e.g., Risk). DO NOT generate questions about Processes."},
+    {"name": "B9: Prac P4-A", "files": ["06_practices_p4.md"], "count": 5, "category": "Practices", "focus": "Practices (e.g., Issues, Progress). DO NOT generate questions about Processes."},
+    {"name": "B10: Prac P4-B", "files": ["06_practices_p4.md"], "count": 4, "category": "Practices", "focus": "Practices (e.g., Issues, Progress). DO NOT generate questions about Processes."},
     
-    # 30% Processes = 21 Questions
-    {"name": "B11: Proc P1-A", "files": ["07_processes_p1.md"], "count": 4},
-    {"name": "B12: Proc P1-B", "files": ["07_processes_p1.md"], "count": 3},
-    {"name": "B13: Proc P2-A", "files": ["08_processes_p2.md"], "count": 4},
-    {"name": "B14: Proc P2-B", "files": ["08_processes_p2.md"], "count": 3},
-    {"name": "B15: Proc P3-A", "files": ["09_processes_p3.md"], "count": 4},
-    {"name": "B16: Proc P3-B", "files": ["09_processes_p3.md"], "count": 3}
+    # Processes
+    {"name": "B11: Proc P1-A", "files": ["07_processes_p1.md"], "count": 4, "category": "Processes", "focus": "Processes (Starting up, Directing)."},
+    {"name": "B12: Proc P1-B", "files": ["07_processes_p1.md"], "count": 3, "category": "Processes", "focus": "Processes (Starting up, Directing)."},
+    {"name": "B13: Proc P2-A", "files": ["08_processes_p2.md"], "count": 4, "category": "Processes", "focus": "Processes (Initiating, Controlling a Stage)."},
+    {"name": "B14: Proc P2-B", "files": ["08_processes_p2.md"], "count": 3, "category": "Processes", "focus": "Processes (Initiating, Controlling a Stage)."},
+    {"name": "B15: Proc P3-A", "files": ["09_processes_p3.md"], "count": 4, "category": "Processes", "focus": "Processes (Managing Product Delivery, Stage Boundary, Closing)."},
+    {"name": "B16: Proc P3-B", "files": ["09_processes_p3.md"], "count": 3, "category": "Processes", "focus": "Processes (Managing Product Delivery, Stage Boundary, Closing)."}
 ]
 
 DATA_FILE = Path("exam_data.json")
@@ -42,7 +42,6 @@ def load_data(path):
     return p.read_text(encoding="utf-8") if p.exists() else ""
 
 def get_existing_progress():
-    """Load existing questions to avoid re-running successful batches."""
     if DATA_FILE.exists():
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -55,7 +54,6 @@ def generate_exam():
     scenario = load_data("data/target_scenario/Louistown_scenario.md")
     roles_outline = load_data("data/target_scenario/Louistown_roles.md")
     
-    # Categorized XML-structured Golden Datasets
     golden_dir = Path("data/golden_datasets")
     scenarios_xml = []
     questions_xml = []
@@ -76,23 +74,18 @@ def generate_exam():
     finished_count = len(full_exam)
     print(f"Found {finished_count} existing questions. Resuming...")
 
-    total_input = 0
-    total_output = 0
-
-    # THE MASTER PROMPT (System Instruction)
     system_instruction = """
     Act as a PRINCE2 7th Edition Lead Examiner. Your task is to generate high-fidelity, Practitioner-level exam questions.
     
     CORE RULES:
     1. PERSONA: You are rigorous, detail-oriented, and mimic the "trap-heavy" style of PeopleCert.
-    2. COGNITIVE LEVEL: Questions MUST be Bloom's Level 3 (Application) or Level 4 (Analysis). NEVER ask for simple definitions or recall (Level 1/2). 
-    3. QUESTION FORMAT: Strongly prefer the official Practitioner reasoning structure for options: 'Yes, because...', 'Yes, because...', 'No, because...', 'No, because...'.
-    4. BANNED FORMATS: Do NOT generate 'Matching' questions (where 3 actions are mapped to 5 roles). Generate ONLY 'Classic' multiple-choice questions with exactly 4 options (A, B, C, D) and a single correct letter answer.
-    5. ROLE ANONYMITY: Never use PRINCE2 role titles (Executive, Senior User, etc.) in questions or options. Use the internal job titles provided in the Role Mapping.
-    6. TRAP LOGIC: Analyze the provided <golden_answers>. Emulate their distractor construction: plausible management products applied in wrong contexts, correct principles applied to wrong roles.
-    7. NOISE ROLES: Identify stakeholders in the Golden Scenarios who have no formal project role. You MUST invent 2-3 similar 'Red Herring' roles for the current target scenario to use as distractor options.
-    8. ASSESSMENT CRITERIA: When testing Practices or Processes, focus specifically on how to apply Key Management Products (e.g., PIDs, Registers, Logs), Role Focus Areas (RACI accountabilities), and Tailoring Techniques.
-    9. OUTPUT FORMAT: Respond ONLY with a valid JSON array. No preamble, no conversational filler, no markdown formatting.
+    2. COGNITIVE LEVEL: Questions MUST be Bloom's Level 3 (Application) or Level 4 (Analysis). NEVER ask for simple definitions or recall. 
+    3. QUESTION FORMAT: Strongly prefer the Practitioner reasoning structure for options: 'Yes, because...', 'Yes, because...', 'No, because...', 'No, because...'.
+    4. BANNED FORMATS: Do NOT generate 'Matching' questions. Generate ONLY multiple-choice questions with exactly 4 options (A, B, C, D).
+    5. ROLE ANONYMITY: Never use PRINCE2 role titles (Executive, Senior User, etc.) in questions/options. Use the internal job titles from the Role Mapping.
+    6. TRAP LOGIC: Emulate distractor construction: plausible management products in wrong contexts, correct principles applied to wrong roles.
+    7. NOISE ROLES: Invent 2-3 'Red Herring' roles for the target scenario to use as distractor options.
+    8. OUTPUT FORMAT: Respond ONLY with a valid JSON array. No preamble.
     """
 
     for idx, batch in enumerate(BATCH_CONFIGS):
@@ -104,9 +97,12 @@ def generate_exam():
         print(f"\n--- Running {batch['name']} ---")
         syllabus_context = "\n".join([load_data(f"data/syllabus/{f}") for f in batch['files']])
 
-        # THE DATA PROMPT (User Message)
         user_message = f"""
-        Generate {batch['count']} questions based on the following data:
+        Generate {batch['count']} questions.
+        
+        CRITICAL SCOPE RESTRICTION:
+        For this batch, your ONLY focus is: {batch['focus']}
+        You MUST completely ignore your pre-trained knowledge of other PRINCE2 chapters. Base the questions strictly on this data:
 
         <syllabus_data>
         {syllabus_context}
@@ -126,10 +122,11 @@ def generate_exam():
         {"\n".join(answers_xml)}
         </style_reference_golden_data>
         
-        CRITICAL INSTRUCTION: Distribute the {batch['count']} questions evenly across the different chapters/sub-topics found within the <syllabus_data>. Do not focus all questions on just the first topic you read. Ensure the 'topic' field explicitly names the chapter being tested (e.g. "Practices - Business Case").
+        CRITICAL DATA INSTRUCTION: 
+        The 'topic' field MUST explicitly start with "{batch['category']} - ". Do not deviate from this prefix.
 
         Target JSON Schema:
-        [{{'id':int, 'topic':str, 'question':str, 'options':{{'A':str,'B':str,'C':str,'D':str}}, 'answer':str, 'rationale':str}}]
+        [{{'id':int, 'topic':'{batch['category']} - [Specific Sub-topic]', 'question':str, 'options':{{'A':str,'B':str,'C':str,'D':str}}, 'answer':str, 'rationale':str}}]
         """
 
         max_retries = 3
@@ -144,8 +141,6 @@ def generate_exam():
                 )
                 
                 raw_text = response.content[0].text
-                
-                # Strip conversational noise and find the actual JSON array
                 start_idx = raw_text.find('[')
                 end_idx = raw_text.rfind(']') + 1
                 
@@ -153,21 +148,24 @@ def generate_exam():
                     clean_json = raw_text[start_idx:end_idx]
                     batch_data = json.loads(clean_json)
                     
+                    # PROGRAMMATIC KILL SWITCH: Force-inject correct category mapping
+                    for q in batch_data:
+                        if not q['topic'].startswith(batch['category']):
+                            q['topic'] = f"{batch['category']} - {q['topic']}"
+                    
                     full_exam.extend(batch_data)
                     with open(DATA_FILE, "w", encoding="utf-8") as f:
                         json.dump(full_exam, f, indent=4)
                     
                     in_tok = response.usage.input_tokens
                     out_tok = response.usage.output_tokens
-                    total_input += in_tok
-                    total_output += out_tok
                     
                     print(f"[Success] Mined {len(batch_data)} questions. Checkpoint saved.")
                     print(f"[Audit] Cost for batch: Input: {in_tok} | Output: {out_tok}")
                     batch_success = True
                     break
                 else:
-                    raise ValueError("No JSON array brackets found in Claude's response.")
+                    raise ValueError("No JSON array brackets found.")
             except Exception as e:
                 print(f"[Error] {batch['name']} Attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
@@ -177,8 +175,6 @@ def generate_exam():
         if idx < len(BATCH_CONFIGS) - 1 and batch_success:
             print("Mitigation: Sleeping 65s between batches...")
             time.sleep(65)
-
-    print(f"\nEXAM COMPLETE: {len(full_exam)} total questions in {DATA_FILE}")
 
 if __name__ == "__main__":
     generate_exam()
