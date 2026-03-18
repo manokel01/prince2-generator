@@ -14,23 +14,27 @@ This tool transforms a raw business scenario into a 70-mark mock exam. It uses R
 
 # 
 
-Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly more complex than a standard Foundation quiz. Traditional AI generation often fails because it lacks the "trap-heavy" nuance of official PeopleCert papers. We identified and solved several key engineering challenges:
+Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly more complex than a standard Foundation quiz. Traditional AI generation often fails because it lacks the "trap-heavy" nuance of official PeopleCert papers. Several key engineering challenges were identified and solved:
 
 -   **1\. The Cognitive Gap (Bloom's Taxonomy):** Most AI models default to "recall" questions. Practitioner exams require Bloom's Level 3 (Application) and Level 4 (Analysis).
     
-    -   _Our Solution:_ The generation engine explicitly bans definitions. It forces a reasoning-based structure ("Yes, because..." / "No, because...") where every option is a plausible management action, but only one is correct based on specific PRINCE2 rules.
+    -   _Solution:_ The generation engine explicitly bans definitions. It forces a reasoning-based structure ("Yes, because..." / "No, because...") where every option is a plausible management action, but only one is correct based on specific PRINCE2 rules.
         
 -   **2\. Knowledge Bleed & Sequence Integrity:** Large Language Models (LLMs) suffer from "knowledge bleed." If you ask for a question on _Principles_, the LLM often pulls in terminology from _Processes_ or _Practices_ prematurely, ruining the syllabus distribution.
     
-    -   _Our Solution:_ We implemented **Programmatic Guardrails (The Kill Switch)**. The script physically intercepts the LLM output and forcefully maps it to the correct syllabus category before saving, ensuring a perfect 10/9/51/30 weighting across the 70 questions.
+    -   _Solution:_ **Programmatic Guardrails (The Kill Switch)** are implemented. The script physically intercepts the LLM output and forcefully maps it to the correct syllabus category before saving, ensuring a perfect 10/9/51/30 weighting across the 70 questions.
         
 -   **3\. Role-Mapping Anonymity:** Official exams test your ability to identify who is who. If the exam says "The Executive did X," it's too easy.
     
-    -   _Our Solution:_ The engine uses a "Hidden State" logic. It maps internal job titles (e.g., "Head of Logistics") to PRINCE2 roles (e.g., "Senior Supplier"). Questions only use the internal job titles, forcing you to deduce the correct project role before you can answer.
+    -   _Solution:_ The engine uses a "Hidden State" logic. It maps internal job titles (e.g., "Head of Logistics") to PRINCE2 roles (e.g., "Senior Supplier"). Questions only use the internal job titles, forcing you to deduce the correct project role before you can answer.
         
 -   **4\. Mathematical Weighting & Chunking:** Feeding the entire 300-page manual to an LLM at once results in "lost-in-the-middle" hallucinations and generic questions.
     
-    -   _Our Solution:_ We used **Mathematical Chunking**. The manual is sliced into 9 specific Markdown chunks under 115KB. The generator processes these one by one, ensuring every question is grounded in a specific, high-resolution context window from the official syllabus.
+    -   _Solution:_ **Mathematical Chunking** is utilized. The manual is sliced into 9 specific Markdown chunks under 115KB. The generator processes these one by one, ensuring every question is grounded in a specific, high-resolution context window from the official syllabus.
+        
+-   **5\. The 'Matching' Format Constraint:** Official exams use complex A–E matching questions (mapping 3 actions to 5 roles). These often break standard JSON schemas and simple terminal UI layouts.
+    
+    -   _Solution:_ A **Combination Multiple-Choice** approach is utilized. The matching items are listed in the question body, and the four options (A–D) provide different mapping combinations. This tests the same rigorous logic while maintaining a clean, terminal-compatible interface.
         
 
 ## Smart Features & Syllabus Alignment
@@ -41,7 +45,9 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
     
 -   **Cognitive Depth:** Generates questions at Bloom's Taxonomy Levels 3 (Application) and 4 (Analysis), focusing on situational reasoning rather than simple recall.
     
--   **Programmatic Guardrails (Kill Switch):** Python-level post-processing physically intercepts the LLM's JSON output to forcefuly map sequence categories, completely eliminating cross-batch knowledge bleed and guaranteeing sequence integrity.
+-   **Standardized Rationale Template:** Every question includes a 3-part rationale (Why Correct / Why Wrong / Manual Citations) formatted in clean Markdown, stripped of conversational filler and question-ID noise.
+    
+-   **Programmatic Guardrails (Kill Switch):** Python-level post-processing physically intercepts the LLM's JSON output to forcefuly map sequence categories, completely eliminating cross-batch knowledge bleed.
     
 -   **Auto-Recovery & Resilience:** Built-in "Wait and Retry" logic specifically designed for Tier 1 API limits. The script automatically catches rate-limit errors, pauses for 65 seconds, and retries the batch without losing progress.
     
