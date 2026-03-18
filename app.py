@@ -2,9 +2,10 @@ import json
 from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, ScrollableContainer
-from textual.widgets import Header, Footer, Static, Label, ListItem, ListView, Markdown
+from textual.widgets import Header, Footer, Static, Label, ListItem, ListView, Markdown, Button
 from textual.binding import Binding
 from textual.screen import ModalScreen
+from textual.events import Click
 
 class ScenarioModal(ModalScreen):
     """Full-screen reading view for the scenario overlay."""
@@ -25,7 +26,6 @@ class ScenarioModal(ModalScreen):
     def compose(self) -> ComposeResult:
         yield Vertical(
             Label("SCENARIO REFERENCE", id="scenario-title"),
-            # Swapped to Markdown for clean rendering of headings and lists
             ScrollableContainer(Markdown(self.scenario_text, id="scenario-text"), id="scenario-scroll"),
             Label("Press 's' or 'Esc' to close...", id="scenario-close-hint"),
             id="scenario-modal-container"
@@ -61,11 +61,14 @@ class RationaleModal(ModalScreen):
     def compose(self) -> ComposeResult:
         yield Vertical(
             Label("CORRECT" if self.is_correct else "INCORRECT", id="status-label", classes="correct" if self.is_correct else "incorrect"),
-            # Swapped to Markdown to support the strict formatting rules from generator.py
             ScrollableContainer(Markdown(self.rationale, id="rationale-text"), id="rationale-scroll"),
-            Label("Press Enter to continue...", id="close-hint"),
+            Button("OK", id="btn-ok", variant="success"),
             id="modal-container"
         )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-ok":
+            self.dismiss()
 
     def action_dismiss(self) -> None:
         self.dismiss()
@@ -77,11 +80,9 @@ class RationaleModal(ModalScreen):
         self.query_one("#rationale-scroll").scroll_relative(y=-3, animate=False)
 
 class ExamApp(App):
+    theme = "textual-light"  # Natively enforces white background, black letters
+    
     CSS = """
-    Screen {
-        background: #000000;
-        color: #ffffff;
-    }
     ScenarioModal, RationaleModal {
         align: center middle;
     }
@@ -90,8 +91,8 @@ class ExamApp(App):
     }
     #sidebar {
         width: 30;
-        background: #080808;
-        border-right: solid #222222;
+        background: #f4f4f4;
+        border-right: solid #cccccc;
         padding: 1;
         height: 100%;
     }
@@ -101,7 +102,7 @@ class ExamApp(App):
     }
     #question-display {
         margin-bottom: 2;
-        color: #00ff00;
+        color: #000000;
     }
     ListView {
         background: transparent;
@@ -113,64 +114,69 @@ class ExamApp(App):
     #options-list {
         height: auto;
         margin-top: 1;
+        margin-bottom: 1;
     }
     #q-list {
         margin-top: 1;
         height: 1fr;
-        border-top: solid #222222;
+        border-top: solid #cccccc;
         padding-top: 1;
     }
     ListItem {
         padding: 1;
-        background: #000000;
+        background: #ffffff;
+        color: #000000;
     }
     ListItem:hover {
-        background: #111111;
+        background: #e0e0e0;
     }
     ListItem:focus {
-        background: #222222;
+        background: #d0d0d0;
     }
     ListItem.--highlight {
-        background: #222222;
-        color: #00ff00;
+        background: #cccccc;
+        color: #000000;
         text-style: bold;
     }
     .answered-item Label {
-        color: #555555;
+        color: #888888;
     }
     #modal-container {
         width: 70%;
         height: auto;
-        background: #000000;
-        border: solid #00ff00;
+        background: #ffffff;
+        border: solid #000000;
         padding: 2;
+        color: #000000;
     }
     #rationale-scroll {
-        max-height: 60vh;
-        scrollbar-background: #000000;
-        scrollbar-color: #222222;
+        max-height: 50vh;
+        scrollbar-background: #eeeeee;
+        scrollbar-color: #aaaaaa;
+        margin-bottom: 1;
     }
     #scenario-modal-container {
         width: 80%;
         height: 80%;
-        background: #000000;
-        border: solid #00ff00;
+        background: #ffffff;
+        border: solid #000000;
         padding: 2;
+        color: #000000;
     }
     #scenario-scroll {
         height: 1fr;
-        scrollbar-background: #000000;
-        scrollbar-color: #222222;
+        scrollbar-background: #eeeeee;
+        scrollbar-color: #aaaaaa;
     }
     #scenario-title {
         text-align: center;
         width: 100%;
         text-style: bold;
-        color: #00ff00;
+        color: #000000;
         margin-bottom: 1;
     }
     #scenario-close-hint {
-        color: #444444;
+        color: #666666;
         text-align: center;
         margin-top: 1;
     }
@@ -180,15 +186,33 @@ class ExamApp(App):
         text-style: bold;
         margin-bottom: 1;
     }
-    .correct { color: #00ff00; }
-    .incorrect { color: #ff0000; }
+    .correct { color: #008800; }
+    .incorrect { color: #dd0000; }
     #close-hint {
-        color: #444444;
-        text-align: center;
-        margin-top: 2;
+        display: none; /* Replaced by OK button */
     }
     #tab-hint {
         color: #666666;
+        margin-top: 1;
+    }
+    #timer-label {
+        text-align: center;
+        text-style: bold;
+        background: #e0e0e0;
+        color: #000000;
+        padding: 1;
+        margin-top: 1;
+        border: solid #cccccc;
+    }
+    #timer-label:hover {
+        background: #cccccc;
+    }
+    #submit-btn {
+        width: 100%;
+        margin-top: 1;
+    }
+    #btn-ok {
+        width: 100%;
         margin-top: 1;
     }
     """
@@ -197,6 +221,7 @@ class ExamApp(App):
         Binding("q", "quit", "Quit"),
         Binding("s", "toggle_scenario", "Toggle Scenario"),
         Binding("tab", "switch_focus", "Switch Panel Focus"),
+        Binding("p", "toggle_pause", "Pause Timer"),
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
     ]
@@ -208,6 +233,8 @@ class ExamApp(App):
         self.score = 0
         self.scenario_text = ""
         self.answered = set()
+        self.time_left = 190 * 60
+        self.timer_paused = False
 
     def on_mount(self):
         try:
@@ -231,6 +258,10 @@ class ExamApp(App):
                 self.query_one("#options-list").focus() 
             else:
                 self.notify("Error: exam_data.json is empty.", severity="error")
+                
+            self.timer_interval = self.set_interval(1, self.tick_timer)
+            self.update_timer_display()
+            
         except Exception as e:
             self.notify(f"Error loading exam: {e}", severity="error")
 
@@ -239,15 +270,40 @@ class ExamApp(App):
         with Horizontal(id="main-layout"):
             with Vertical(id="sidebar"):
                 yield Label("PRINCE2 PROCTOR", id="title")
+                yield Label("Time: 190:00", id="timer-label")
                 yield Label("Progress: 0/70", id="progress")
                 yield Label("Score: 0", id="score-label")
-                yield Label("Tab: Switch Panel", id="tab-hint")
+                yield Label("Tab: Switch Panel\np: Pause Timer", id="tab-hint")
                 yield ListView(id="q-list")
             with Vertical(id="content-area"):
-                # Swapped to Markdown to cleanly render Combination Matching lists/paragraphs
                 yield Markdown("Loading...", id="question-display")
                 yield ListView(id="options-list")
+                yield Button("Next", id="submit-btn", variant="primary")
         yield Footer()
+
+    def tick_timer(self):
+        if not self.timer_paused and self.time_left > 0:
+            self.time_left -= 1
+            self.update_timer_display()
+            if self.time_left == 0:
+                self.timer_paused = True
+                self.notify("Time is up!", severity="warning")
+
+    def update_timer_display(self):
+        mins, secs = divmod(self.time_left, 60)
+        status = " (PAUSED)" if self.timer_paused else ""
+        try:
+            self.query_one("#timer-label").update(f"Time: {mins:02d}:{secs:02d}{status}")
+        except:
+            pass
+
+    def action_toggle_pause(self):
+        self.timer_paused = not self.timer_paused
+        self.update_timer_display()
+
+    def on_click(self, event: Click) -> None:
+        if event.control and event.control.id == "timer-label":
+            self.action_toggle_pause()
 
     def populate_sidebar(self):
         q_list = self.query_one("#q-list")
@@ -266,10 +322,13 @@ class ExamApp(App):
         if self.current_idx >= len(self.exam_data):
             self.query_one("#question-display").update(f"EXAM COMPLETE\nFinal Score: {self.score}/{len(self.exam_data)}")
             self.query_one("#options-list").clear()
+            self.query_one("#submit-btn").display = False
+            self.timer_paused = True
+            self.update_timer_display()
             return
 
+        self.query_one("#submit-btn").display = True
         q = self.exam_data[self.current_idx]
-        # Update Markdown widget with bold question number and body text
         self.query_one("#question-display").update(f"**Q{self.current_idx + 1}:** {q['question']}")
         
         list_view = self.query_one("#options-list")
@@ -294,37 +353,54 @@ class ExamApp(App):
             self.query_one("#options-list").focus()
             
         elif list_id == "options-list":
-            if self.current_idx in self.answered:
-                self.notify("Already answered. Skipping...", severity="warning")
-                self.current_idx += 1
-                self.update_question()
-                return
+            # Decoupled logic: Selecting via mouse/keyboard only highlights the option.
+            # Grading is deferred to the "Next" button.
+            pass
 
-            choice = event.item.name
-            q = self.exam_data[self.current_idx]
-            correct_ans = q.get('answer', '')
-            is_correct = choice == correct_ans
-            
-            if is_correct:
-                self.score += 1
-                self.query_one("#score-label").update(f"Score: {self.score}")
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "submit-btn":
+            self.submit_answer()
 
-            self.answered.add(self.current_idx)
-            
-            try:
-                q_list = self.query_one("#q-list")
-                target_item = q_list.children[self.current_idx]
-                target_item.query_one(Label).update(f"Question {self.current_idx + 1} [✓]")
-                target_item.add_class("answered-item")
-            except Exception:
-                pass
+    def submit_answer(self):
+        if self.current_idx in self.answered:
+            self.notify("Already answered. Skipping...", severity="warning")
+            self.current_idx += 1
+            self.update_question()
+            return
 
-            def after_modal(_=None):
-                self.current_idx += 1
-                self.update_question()
-                self.query_one("#options-list").focus()
+        opt_list = self.query_one("#options-list")
+        if opt_list.index is None:
+            self.notify("Please select an answer first.", severity="warning")
+            return
 
-            self.push_screen(RationaleModal(q.get('rationale', 'No rationale provided.'), is_correct), callback=after_modal)
+        selected_item = opt_list.highlighted_child
+        if not selected_item: return
+        choice = selected_item.name
+        
+        q = self.exam_data[self.current_idx]
+        correct_ans = q.get('answer', '')
+        is_correct = choice == correct_ans
+        
+        if is_correct:
+            self.score += 1
+            self.query_one("#score-label").update(f"Score: {self.score}")
+
+        self.answered.add(self.current_idx)
+        
+        try:
+            q_list = self.query_one("#q-list")
+            target_item = q_list.children[self.current_idx]
+            target_item.query_one(Label).update(f"Question {self.current_idx + 1} [✓]")
+            target_item.add_class("answered-item")
+        except Exception:
+            pass
+
+        def after_modal(_=None):
+            self.current_idx += 1
+            self.update_question()
+            self.query_one("#options-list").focus()
+
+        self.push_screen(RationaleModal(q.get('rationale', 'No rationale provided.'), is_correct), callback=after_modal)
 
     def action_switch_focus(self):
         q_list = self.query_one("#q-list")
