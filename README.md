@@ -14,32 +14,30 @@ This tool transforms a raw business scenario into a 70-mark mock exam. It uses R
 
 # 
 
--   **Strict Syllabus Weighting:** Mathematically enforces the official Practitioner distribution: Principles (10%), People (9%), Practices (51%), and Processes (30%).
+-   **Official Syllabus Weighting:** Mathematically enforces the Practitioner distribution: Principles (10%), People (9%), Practices (51%), and Processes (30%).
     
--   **Cognitive Targeting:** Forces the LLM to generate questions strictly at Bloom's Taxonomy Levels 3 (Application) and 4 (Analysis), explicitly banning Level 1/2 recall questions.
+-   **Cognitive Depth:** Generates questions at Bloom's Taxonomy Levels 3 (Application) and 4 (Analysis), focusing on situational reasoning rather than simple recall.
     
--   **Anti-Clumping & Hallucination Defenses:** Instructs the LLM to distribute questions evenly across chunked content and explicitly bans PeopleCert's "Matching" format to ensure compatibility with single-character A-D options.
+-   **Auto-Recovery & Resilience:** Built-in "Wait and Retry" logic specifically designed for Tier 1 API limits. The script automatically catches rate-limit errors, pauses for 65 seconds, and retries the batch without losing progress.
     
--   **Intelligent Auditor:** Performs a full Sequence Integrity Audit, auto-sorts questions into their correct chronological chapter order, and maps generated topics to official syllabus boundaries.
+-   **Syllabus-Targeted Auditing:** The `auditor.py` script performs a sequence integrity check, ensuring questions appear in the correct chronological order as they do in the official manual.
     
--   **Official Pass Threshold:** The interface evaluates the final score against the strict 42/70 (60%) pass mark required for Practitioner certification.
+-   **Official Pass Threshold:** The interface evaluates final performance against the 42/70 (60%) pass threshold required for certification.
     
 
 ## Interactive Exam Environment Features
 
 # 
 
--   **High-Contrast Interface:** A fast, command-line environment optimized for focus, featuring a high-contrast dark theme and minimal visual overhead.
+-   **High-Contrast Interface:** A fast, command-line environment optimized for focus, featuring a high-contrast dark theme.
     
--   **Dual-Panel Navigation:** Focus-switchable layout featuring a persistent sidebar for progress tracking and a primary area for question interaction.
+-   **Dual-Panel Navigation:** Tab-switchable layout featuring a persistent sidebar for progress tracking and a primary area for question interaction.
     
--   **Instant Feedback & Rationales:** Automatically grades responses and triggers an overlay modal containing detailed, color-coded explanations for every answer.
+-   **Instant Feedback:** Automatically grades responses and triggers an overlay modal containing detailed explanations (rationales) for every answer.
     
--   **Scenario Reference System:** Dedicated modal overlay allows users to consult the project scenario and role mapping at any time without losing their current position in the exam.
+-   **Scenario Reference System:** Dedicated modal overlay allows users to consult the project scenario and role mapping at any time (`s`) without losing their place in the exam.
     
--   **Progress Persistence:** Visual tracking of answered items (`[✓]`) in the navigation sidebar, with automatic gray-out and lock logic to prevent re-submission.
-    
--   **Keyboard-First Workflow:** Comprehensive support for Vim-style navigation (`j`/`k`) and arrow keys for scrolling through scenario text and selecting options.
+-   **Progress Persistence:** Visual tracking of answered items (`[✓]`) in the navigation sidebar, with automatic lock logic to prevent re-submission.
     
 
 ## Architecture & Workflow
@@ -50,9 +48,7 @@ This tool transforms a raw business scenario into a 70-mark mock exam. It uses R
     
 -   **Mathematical Chunking:** The official manual is sliced into 9 strictly-sized chunks (<115KB) to respect Tier 1 LLM token limits and maintain high-precision context windows.
     
--   **Hidden State Logic:** The engine internally maps organizational titles to PRINCE2 roles, generating scenario narratives that avoid PRINCE2 terminology to test the candidate's ability to deduce roles.
-    
--   **Stateful Generation:** Powered by Claude 3.5 Sonnet. Uses a 16-batch architecture with 65s rate-limit mitigation and automatic XML-categorized state checkpointing.
+-   **Stateful Generation:** Powered by Claude 3.5 Sonnet. Uses a 16-batch architecture with 65s rate-limit mitigation and automatic XML-categorized state checkpointing to `exam_data.json`.
     
 -   **Validation Engine:** An independent auditor script enforces a strict A-D schema and automatically repairs hallucinated JSON structures.
     
@@ -99,6 +95,8 @@ This tool transforms a raw business scenario into a 70-mark mock exam. It uses R
         python generator.py
         
     
+    _Note: This takes ~30 minutes. The script will hit "Rate Limit" errors; it is programmed to wait 65s and retry automatically. Do not close the terminal._
+    
 3.  **Audit & Repair:**
     
         python auditor.py --repair
@@ -108,6 +106,17 @@ This tool transforms a raw business scenario into a 70-mark mock exam. It uses R
     
         python app.py
         
+    
+
+## Troubleshooting
+
+# 
+
+-   **Rate Limits (429 Errors):** These are normal for Tier 1 accounts. The script will log the error, wait for the reset period, and retry.
+    
+-   **API Credit Exhaustion (400 Errors):** If you run out of credits, the script stops. Top up your Anthropic balance and run `python generator.py` again—it will resume from the last saved question.
+    
+-   **Resetting the Exam:** To generate a fresh exam, delete the `exam_data.json` file.
     
 
 ## TUI Keybinds
