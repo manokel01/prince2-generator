@@ -11,24 +11,28 @@ client = Anthropic(
     timeout=180.0
 )
 
-# RE-BALANCED BATCHES
+# RE-BALANCED BATCHES (Total: 70 Questions - Official PRINCE2 v7 Weights)
 BATCH_CONFIGS = [
     {"name": "B1: Intro", "files": ["01_intro_principles.md"], "count": 7},
     {"name": "B2: People", "files": ["02_people.md"], "count": 6},
-    {"name": "B3: Prac P1-A", "files": ["03_practices_p1.md"], "count": 4},
+    
+    # 51% Practices = 36 Questions
+    {"name": "B3: Prac P1-A", "files": ["03_practices_p1.md"], "count": 5},
     {"name": "B4: Prac P1-B", "files": ["03_practices_p1.md"], "count": 4},
-    {"name": "B5: Prac P2-A", "files": ["04_practices_p2.md"], "count": 4},
+    {"name": "B5: Prac P2-A", "files": ["04_practices_p2.md"], "count": 5},
     {"name": "B6: Prac P2-B", "files": ["04_practices_p2.md"], "count": 4},
-    {"name": "B7: Prac P3-A", "files": ["05_practices_p3.md"], "count": 4},
+    {"name": "B7: Prac P3-A", "files": ["05_practices_p3.md"], "count": 5},
     {"name": "B8: Prac P3-B", "files": ["05_practices_p3.md"], "count": 4},
-    {"name": "B9: Prac P4-A", "files": ["06_practices_p4.md"], "count": 4},
+    {"name": "B9: Prac P4-A", "files": ["06_practices_p4.md"], "count": 5},
     {"name": "B10: Prac P4-B", "files": ["06_practices_p4.md"], "count": 4},
-    {"name": "B11: Proc P1-A", "files": ["07_processes_p1.md"], "count": 5},
-    {"name": "B12: Proc P1-B", "files": ["07_processes_p1.md"], "count": 5},
+    
+    # 30% Processes = 21 Questions
+    {"name": "B11: Proc P1-A", "files": ["07_processes_p1.md"], "count": 4},
+    {"name": "B12: Proc P1-B", "files": ["07_processes_p1.md"], "count": 3},
     {"name": "B13: Proc P2-A", "files": ["08_processes_p2.md"], "count": 4},
-    {"name": "B14: Proc P2-B", "files": ["08_processes_p2.md"], "count": 4},
+    {"name": "B14: Proc P2-B", "files": ["08_processes_p2.md"], "count": 3},
     {"name": "B15: Proc P3-A", "files": ["09_processes_p3.md"], "count": 4},
-    {"name": "B16: Proc P3-B", "files": ["09_processes_p3.md"], "count": 5}
+    {"name": "B16: Proc P3-B", "files": ["09_processes_p3.md"], "count": 3}
 ]
 
 DATA_FILE = Path("exam_data.json")
@@ -50,52 +54,82 @@ def get_existing_progress():
 def generate_exam():
     scenario = load_data("data/target_scenario/Louistown_scenario.md")
     roles_outline = load_data("data/target_scenario/Louistown_roles.md")
-    golden_q = load_data("data/golden_datasets/NowByou_question_set_1.md")
-    golden_a = load_data("data/golden_datasets/NowByou_answer_set_1.md")
+    
+    # Categorized XML-structured Golden Datasets
+    golden_dir = Path("data/golden_datasets")
+    scenarios_xml = []
+    questions_xml = []
+    answers_xml = []
+    
+    if golden_dir.exists():
+        for md_file in golden_dir.glob("*.md"):
+            content = md_file.read_text(encoding='utf-8')
+            name = md_file.name.lower()
+            if "scenario" in name:
+                scenarios_xml.append(f"<golden_scenario source='{md_file.name}'>\n{content}\n</golden_scenario>")
+            elif "question" in name:
+                questions_xml.append(f"<golden_questions source='{md_file.name}'>\n{content}\n</golden_questions>")
+            elif "answer" in name:
+                answers_xml.append(f"<golden_answers source='{md_file.name}'>\n{content}\n</golden_answers>")
 
     full_exam = get_existing_progress()
-    
-    # Simple checkpoint logic: track which batches we've already finished
-    # We use 'topic' or index to determine if we should skip
     finished_count = len(full_exam)
     print(f"Found {finished_count} existing questions. Resuming...")
 
     total_input = 0
     total_output = 0
-    current_q_count = 0
+
+    # THE MASTER PROMPT (System Instruction)
+    system_instruction = """
+    Act as a PRINCE2 7th Edition Lead Examiner. Your task is to generate high-fidelity, Practitioner-level exam questions.
+    
+    CORE RULES:
+    1. PERSONA: You are rigorous, detail-oriented, and mimic the "trap-heavy" style of PeopleCert.
+    2. COGNITIVE LEVEL: Questions MUST be Bloom's Level 3 (Application) or Level 4 (Analysis). NEVER ask for simple definitions or recall (Level 1/2). 
+    3. QUESTION FORMAT: Strongly prefer the official Practitioner reasoning structure for options: 'Yes, because...', 'Yes, because...', 'No, because...', 'No, because...'.
+    4. BANNED FORMATS: Do NOT generate 'Matching' questions (where 3 actions are mapped to 5 roles). Generate ONLY 'Classic' multiple-choice questions with exactly 4 options (A, B, C, D) and a single correct letter answer.
+    5. ROLE ANONYMITY: Never use PRINCE2 role titles (Executive, Senior User, etc.) in questions or options. Use the internal job titles provided in the Role Mapping.
+    6. TRAP LOGIC: Analyze the provided <golden_answers>. Emulate their distractor construction: plausible management products applied in wrong contexts, correct principles applied to wrong roles.
+    7. NOISE ROLES: Identify stakeholders in the Golden Scenarios who have no formal project role. You MUST invent 2-3 similar 'Red Herring' roles for the current target scenario to use as distractor options.
+    8. ASSESSMENT CRITERIA: When testing Practices or Processes, focus specifically on how to apply Key Management Products (e.g., PIDs, Registers, Logs), Role Focus Areas (RACI accountabilities), and Tailoring Techniques.
+    9. OUTPUT FORMAT: Respond ONLY with a valid JSON array. No preamble, no conversational filler, no markdown formatting.
+    """
 
     for idx, batch in enumerate(BATCH_CONFIGS):
-        # Skip logic: if the cumulative count of previous batches covers this one, skip it
         target_q_range_end = sum(b['count'] for b in BATCH_CONFIGS[:idx+1])
-        
         if finished_count >= target_q_range_end:
             print(f"--- Skipping {batch['name']} (Already mined) ---")
-            current_q_count = target_q_range_end
             continue
 
         print(f"\n--- Running {batch['name']} ---")
         syllabus_context = "\n".join([load_data(f"data/syllabus/{f}") for f in batch['files']])
 
-        prompt = f"""
-        Act as a PRINCE2 7th Edition Lead Examiner. Generate {batch['count']} Practitioner-level questions.
-        
-        SYLLABUS DATA:
+        # THE DATA PROMPT (User Message)
+        user_message = f"""
+        Generate {batch['count']} questions based on the following data:
+
+        <syllabus_data>
         {syllabus_context}
+        </syllabus_data>
 
-        SCENARIO:
+        <target_scenario>
         {scenario}
+        </target_scenario>
 
-        ROLE MAPPING:
+        <role_mapping>
         {roles_outline}
+        </role_mapping>
 
-        STYLE REFERENCE:
-        {golden_q[:1000]}
-        {golden_a[:1000]}
+        <style_reference_golden_data>
+        {"\n".join(scenarios_xml)}
+        {"\n".join(questions_xml)}
+        {"\n".join(answers_xml)}
+        </style_reference_golden_data>
+        
+        CRITICAL INSTRUCTION: Distribute the {batch['count']} questions evenly across the different chapters/sub-topics found within the <syllabus_data>. Do not focus all questions on just the first topic you read. Ensure the 'topic' field explicitly names the chapter being tested (e.g. "Practices - Business Case").
 
-        CONSTRAINTS:
-        1. NO PRINCE2 ROLES: Use internal scenario titles (e.g. 'Mayor').
-        2. RATIONALES: Provide a detailed rationale for all 4 options.
-        3. OUTPUT: Strictly valid JSON list.
+        Target JSON Schema:
+        [{{'id':int, 'topic':str, 'question':str, 'options':{{'A':str,'B':str,'C':str,'D':str}}, 'answer':str, 'rationale':str}}]
         """
 
         max_retries = 3
@@ -105,11 +139,13 @@ def generate_exam():
                 response = client.messages.create(
                     model="claude-sonnet-4-6",
                     max_tokens=8192,
-                    system="JSON ONLY. Format: [{'id':int, 'topic':str, 'question':str, 'options':{'A':str,'B':str,'C':str,'D':str}, 'answer':str, 'rationale':str}]",
-                    messages=[{"role": "user", "content": prompt}]
+                    system=system_instruction,
+                    messages=[{"role": "user", "content": user_message}]
                 )
                 
                 raw_text = response.content[0].text
+                
+                # Strip conversational noise and find the actual JSON array
                 start_idx = raw_text.find('[')
                 end_idx = raw_text.rfind(']') + 1
                 
@@ -117,27 +153,29 @@ def generate_exam():
                     clean_json = raw_text[start_idx:end_idx]
                     batch_data = json.loads(clean_json)
                     
-                    # Append and SAVE IMMEDIATELY (Checkpoint)
                     full_exam.extend(batch_data)
                     with open(DATA_FILE, "w", encoding="utf-8") as f:
                         json.dump(full_exam, f, indent=4)
                     
-                    total_input += response.usage.input_tokens
-                    total_output += response.usage.output_tokens
+                    in_tok = response.usage.input_tokens
+                    out_tok = response.usage.output_tokens
+                    total_input += in_tok
+                    total_output += out_tok
+                    
                     print(f"[Success] Mined {len(batch_data)} questions. Checkpoint saved.")
+                    print(f"[Audit] Cost for batch: Input: {in_tok} | Output: {out_tok}")
                     batch_success = True
                     break
                 else:
-                    raise ValueError("JSON anchors missing.")
-                
+                    raise ValueError("No JSON array brackets found in Claude's response.")
             except Exception as e:
-                print(f"[Error] {batch['name']} Attempt {attempt + 1}: {e}")
+                print(f"[Error] {batch['name']} Attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
-                    print("Cooling down 65s before retry...")
+                    print("Cooling down for 65s before retry...")
                     time.sleep(65)
 
         if idx < len(BATCH_CONFIGS) - 1 and batch_success:
-            print("Mitigation: Sleeping 65s...")
+            print("Mitigation: Sleeping 65s between batches...")
             time.sleep(65)
 
     print(f"\nEXAM COMPLETE: {len(full_exam)} total questions in {DATA_FILE}")
