@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, ScrollableContainer
-from textual.widgets import Header, Footer, Static, Label, ListItem, ListView
+from textual.widgets import Header, Footer, Static, Label, ListItem, ListView, Markdown
 from textual.binding import Binding
 from textual.screen import ModalScreen
 
@@ -25,8 +25,8 @@ class ScenarioModal(ModalScreen):
     def compose(self) -> ComposeResult:
         yield Vertical(
             Label("SCENARIO REFERENCE", id="scenario-title"),
-            # Native scrollable wrapper
-            ScrollableContainer(Static(self.scenario_text, id="scenario-text"), id="scenario-scroll"),
+            # Swapped to Markdown for clean rendering of headings and lists
+            ScrollableContainer(Markdown(self.scenario_text, id="scenario-text"), id="scenario-scroll"),
             Label("Press 's' or 'Esc' to close...", id="scenario-close-hint"),
             id="scenario-modal-container"
         )
@@ -61,8 +61,8 @@ class RationaleModal(ModalScreen):
     def compose(self) -> ComposeResult:
         yield Vertical(
             Label("CORRECT" if self.is_correct else "INCORRECT", id="status-label", classes="correct" if self.is_correct else "incorrect"),
-            # Native scrollable wrapper
-            ScrollableContainer(Static(self.rationale, id="rationale-text"), id="rationale-scroll"),
+            # Swapped to Markdown to support the strict formatting rules from generator.py
+            ScrollableContainer(Markdown(self.rationale, id="rationale-text"), id="rationale-scroll"),
             Label("Press Enter to continue...", id="close-hint"),
             id="modal-container"
         )
@@ -99,8 +99,7 @@ class ExamApp(App):
         padding: 2;
         height: 100%;
     }
-    .question-text {
-        text-style: bold;
+    #question-display {
         margin-bottom: 2;
         color: #00ff00;
     }
@@ -218,8 +217,13 @@ class ExamApp(App):
                     self.exam_data = json.load(f)[:70]
             
             scenario_path = Path("data/target_scenario/Louistown_scenario.md")
-            if scenario_path.exists():
-                self.scenario_text = scenario_path.read_text(encoding="utf-8")
+            roles_path = Path("data/target_scenario/Louistown_roles.md")
+            
+            s_text = scenario_path.read_text(encoding="utf-8") if scenario_path.exists() else ""
+            r_text = roles_path.read_text(encoding="utf-8") if roles_path.exists() else ""
+            
+            if s_text or r_text:
+                self.scenario_text = f"{s_text}\n\n---\n\n### ROLES & PEOPLE\n\n{r_text}".strip()
             
             if self.exam_data:
                 self.populate_sidebar()
@@ -240,7 +244,8 @@ class ExamApp(App):
                 yield Label("Tab: Switch Panel", id="tab-hint")
                 yield ListView(id="q-list")
             with Vertical(id="content-area"):
-                yield Static("Loading...", id="question-display", classes="question-text")
+                # Swapped to Markdown to cleanly render Combination Matching lists/paragraphs
+                yield Markdown("Loading...", id="question-display")
                 yield ListView(id="options-list")
         yield Footer()
 
@@ -264,7 +269,8 @@ class ExamApp(App):
             return
 
         q = self.exam_data[self.current_idx]
-        self.query_one("#question-display").update(f"Q{self.current_idx + 1}: {q['question']}")
+        # Update Markdown widget with bold question number and body text
+        self.query_one("#question-display").update(f"**Q{self.current_idx + 1}:** {q['question']}")
         
         list_view = self.query_one("#options-list")
         list_view.clear()
