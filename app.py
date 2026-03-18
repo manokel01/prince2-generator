@@ -53,15 +53,23 @@ class RationaleModal(ModalScreen):
         Binding("up", "scroll_up", "Scroll Up", show=False),
     ]
 
-    def __init__(self, rationale, is_correct, **kwargs):
+    def __init__(self, rationale, is_correct, correct_ans, **kwargs):
         super().__init__(**kwargs)
         self.rationale = rationale
         self.is_correct = is_correct
+        self.correct_ans = correct_ans
 
     def compose(self) -> ComposeResult:
+        # Dynamic Header
+        header_text = "CORRECT" if self.is_correct else f"INCORRECT - The correct answer is {self.correct_ans}"
+        
+        # Dynamic String Replacement to fix cognitive dissonance
+        cleaned_rationale = self.rationale.replace("**Why this is correct:**", f"**Why Option {self.correct_ans} is correct:**")
+        cleaned_rationale = cleaned_rationale.replace("Why this is correct:", f"**Why Option {self.correct_ans} is correct:**")
+
         yield Vertical(
-            Label("CORRECT" if self.is_correct else "INCORRECT", id="status-label", classes="correct" if self.is_correct else "incorrect"),
-            ScrollableContainer(Markdown(self.rationale, id="rationale-text"), id="rationale-scroll"),
+            Label(header_text, id="status-label", classes="correct" if self.is_correct else "incorrect"),
+            ScrollableContainer(Markdown(cleaned_rationale, id="rationale-text"), id="rationale-scroll"),
             Button("OK", id="btn-ok", variant="success"),
             id="modal-container"
         )
@@ -243,14 +251,10 @@ class ExamApp(App):
                 with open(data_file, "r", encoding="utf-8") as f:
                     self.exam_data = json.load(f)[:70]
             
+            # Simplified for Unified Narrative Grounding
             scenario_path = Path("data/target_scenario/Louistown_scenario.md")
-            roles_path = Path("data/target_scenario/Louistown_roles.md")
-            
-            s_text = scenario_path.read_text(encoding="utf-8") if scenario_path.exists() else ""
-            r_text = roles_path.read_text(encoding="utf-8") if roles_path.exists() else ""
-            
-            if s_text or r_text:
-                self.scenario_text = f"{s_text}\n\n---\n\n### ROLES & PEOPLE\n\n{r_text}".strip()
+            if scenario_path.exists():
+                self.scenario_text = scenario_path.read_text(encoding="utf-8").strip()
             
             if self.exam_data:
                 self.populate_sidebar()
@@ -353,8 +357,6 @@ class ExamApp(App):
             self.query_one("#options-list").focus()
             
         elif list_id == "options-list":
-            # Decoupled logic: Selecting via mouse/keyboard only highlights the option.
-            # Grading is deferred to the "Next" button.
             pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -400,7 +402,7 @@ class ExamApp(App):
             self.update_question()
             self.query_one("#options-list").focus()
 
-        self.push_screen(RationaleModal(q.get('rationale', 'No rationale provided.'), is_correct), callback=after_modal)
+        self.push_screen(RationaleModal(q.get('rationale', 'No rationale provided.'), is_correct, correct_ans), callback=after_modal)
 
     def action_switch_focus(self):
         q_list = self.query_one("#q-list")

@@ -3,21 +3,15 @@ import sys
 from pathlib import Path
 from collections import Counter
 
-def get_cat(topic_str):
-    t = topic_str.lower()
-    # Syllabus 1.0 (Intro/Principles)
-    if any(m in t for m in ["intro", "principle", "overview", "context"]): 
-        return 0, "Intro/Principles"
-    # Syllabus 2.0 (People)
-    elif any(m in t for m in ["people", "stakeholder", "culture", "communication", "leadership"]): 
-        return 1, "People"
-    # Syllabus 3.0 (Practices)
-    elif any(m in t for m in ["practice", "prac", "business case", "organizing", "plan", "quality", "risk", "issue", "progress"]): 
-        return 2, "Practices"
-    # Syllabus 4.0 (Processes)
-    elif any(m in t for m in ["process", "proc", "starting up", "directing", "initiating", "controlling", "managing product", "stage boundary", "closing", "delivery"]): 
-        return 3, "Processes"
-    return 4, "Unknown"
+def get_cat_id(cat_name):
+    """Maps category names to chronological IDs for sorting."""
+    mapping = {
+        "Intro/Principles": 0,
+        "People": 1,
+        "Practices": 2,
+        "Processes": 3
+    }
+    return mapping.get(cat_name, 4)
 
 def audit_exam_data(repair=False):
     file_path = Path("exam_data.json")
@@ -39,17 +33,18 @@ def audit_exam_data(repair=False):
     unique_questions = set()
 
     print(f"--- Starting Audit of {total_q} Questions ---")
+    
     if repair:
         print("[Mode] Repair enabled. Sorting chronological sequence and fixing structural issues...")
         
-        # Auto-Sort by chronological PRINCE2 syllabus categories
+        # Auto-Sort by chronological PRINCE2 syllabus categories using the explicit category field
         original_order = [q.get('topic') for q in data]
-        data.sort(key=lambda q: get_cat(q.get('topic', ''))[0])
+        data.sort(key=lambda q: get_cat_id(q.get('category', '')))
         new_order = [q.get('topic') for q in data]
         
         if original_order != new_order:
             repaired_count += 1
-            print("[Repair] Chronological sequence auto-sorted.")
+            print("[Repair] Chronological sequence auto-sorted based on 'category' field.")
 
     # 1. Global Count Check
     if len(data) != 70:
@@ -65,22 +60,22 @@ def audit_exam_data(repair=False):
 
     print("\n--- Sequence Integrity Audit ---")
     for i, q in enumerate(data):
-        topic = q.get('topic', '')
-        cat_id, cat_name = get_cat(topic)
+        # Use the explicit category field instead of guessing from the topic
+        cat_name = q.get('category', 'Unknown')
         topic_counts[cat_name] += 1
 
-        # Expected layout based on exact official 70 question split (Syllabus Page 10)
+        # Expected layout based on exact official 70 question split
         expected_cat = "Unknown"
         if 0 <= i < 7: expected_cat = "Intro/Principles"
         elif 7 <= i < 13: expected_cat = "People"
         elif 13 <= i < 49: expected_cat = "Practices"
         elif 49 <= i < 70: expected_cat = "Processes"
 
-        if cat_name != expected_cat and cat_name != "Unknown":
+        if cat_name != expected_cat:
             sequence_errors += 1
-            issues.append(f"Sequence: Q{i+1} is '{topic}' ({cat_name}), but index {i+1} is reserved for {expected_cat}.")
+            issues.append(f"Sequence: Q{i+1} has category '{cat_name}', but index {i+1} is reserved for {expected_cat}.")
 
-    # Print Distribution Summary (Updated to official Syllabus weights)
+    # Print Distribution Summary
     target_dist = {"Intro/Principles": 7, "People": 6, "Practices": 36, "Processes": 21}
     for category, target in target_dist.items():
         actual = topic_counts[category]
@@ -88,7 +83,7 @@ def audit_exam_data(repair=False):
         print(f"  {status} {category}: {actual}/{target}")
     
     if topic_counts["Unknown"] > 0:
-        print(f"  ⚠️ Unknown Topics: {topic_counts['Unknown']} questions have unrecognizable topic names.")
+        print(f"  ⚠️ Unknown Categories: {topic_counts['Unknown']} questions have unrecognizable category labels.")
 
     if sequence_errors > 0:
         print(f"  ❌ Sequence: Found {sequence_errors} questions pushing past their chronological boundaries.")
@@ -97,10 +92,18 @@ def audit_exam_data(repair=False):
 
     # 3. Individual Question Detail Audit
     for i, q in enumerate(data):
-        required_keys = ['topic', 'question', 'options', 'answer', 'rationale']
+        # Category is now a required key in the schema
+        required_keys = ['id', 'category', 'topic', 'question', 'options', 'answer', 'rationale']
         if not all(k in q for k in required_keys):
-            issues.append(f"Q{i+1}: Missing structural keys.")
+            missing = [k for k in required_keys if k not in q]
+            issues.append(f"Q{i+1}: Missing structural keys: {missing}")
             continue
+
+        # Topic string check - Ensure the Kill Switch prefix is present
+        topic = q.get('topic', '')
+        category = q.get('category', '')
+        if not topic.startswith(f"{category} - "):
+            issues.append(f"Q{i+1}: Topic prefix mismatch. Expected '{category} - ', found '{topic}'")
 
         options = q.get('options', {})
         standard_keys = {'A', 'B', 'C', 'D'}
@@ -116,18 +119,15 @@ def audit_exam_data(repair=False):
 
         ans = str(q.get('answer', '')).strip()
         if ans not in standard_keys:
-            if any(char in ans for char in [":", "=", "Action", "Item", "-"]):
-                issues.append(f"Q{i+1}: Hallucinated 'Matching' logic in answer field. Fix manually.")
-            else:
-                issues.append(f"Q{i+1}: Invalid answer '{ans}'.")
+            issues.append(f"Q{i+1}: Invalid answer '{ans}'.")
 
         q_text = q.get('question', '').strip()
         if q_text in unique_questions:
-            issues.append(f"Q{i+1}: Duplicate question text.")
+            issues.append(f"Q{i+1}: Duplicate question text detected.")
         unique_questions.add(q_text)
 
         if len(q.get('rationale', '')) < 50:
-            issues.append(f"Q{i+1}: Rationale is too short/low quality.")
+            issues.append(f"Q{i+1}: Rationale is dangerously short or missing.")
 
     if repair and repaired_count > 0:
         with open(file_path, "w", encoding="utf-8") as f:

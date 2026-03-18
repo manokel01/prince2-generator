@@ -51,8 +51,8 @@ def get_existing_progress():
     return []
 
 def generate_exam():
+    # Unified Context loading
     scenario = load_data("data/target_scenario/Louistown_scenario.md")
-    roles_outline = load_data("data/target_scenario/Louistown_roles.md")
     
     golden_dir = Path("data/golden_datasets")
     scenarios_xml = []
@@ -82,11 +82,11 @@ def generate_exam():
     2. COGNITIVE LEVEL: Questions MUST be Bloom's Level 3 (Application) or Level 4 (Analysis). NEVER ask for simple definitions or recall. 
     3. QUESTION FORMAT: Strongly prefer the Practitioner reasoning structure for options: 'Yes, because...', 'Yes, because...', 'No, because...', 'No, because...'.
     4. MATCHING QUESTIONS: When creating matching questions (e.g., matching 3 items to 5 roles), use the 'Combination Multiple-Choice' format. List the items and roles in the Question body, then provide 4 different mapping combinations as Options A, B, C, and D.
-    5. ROLE ANONYMITY: Never use PRINCE2 role titles (Executive, Senior User, etc.) in questions/options. Use the internal job titles from the Role Mapping.
+    5. ROLE ANONYMITY: Never use PRINCE2 role titles (Executive, Senior User, etc.) in questions/options. Use the internal job titles or business roles described in the Project Scenario.
     6. TRAP LOGIC: Emulate distractor construction: plausible management products in wrong contexts, correct principles applied to wrong roles.
-    7. NOISE ROLES: Invent 2-3 'Red Herring' roles for the target scenario to use as distractor options.
+    7. NOISE ROLES: Utilize the broader personnel and stakeholder profiles in the scenario to create plausible distractor options.
     8. RATIONALE FORMATTING: The 'rationale' field MUST be objective and agnostic. 
-       - DO NOT include conversational filler (e.g., "You are correct", "Your answer is incorrect").
+       - DO NOT include conversational filler (e.g., "You are correct").
        - DO NOT include the Question ID or the correct letter in the text.
        - Use this exact Markdown structure:
          **Why this is correct:** [Brief analysis of the correct mapping/logic]
@@ -113,19 +113,15 @@ def generate_exam():
         
         CRITICAL SCOPE RESTRICTION:
         For this batch, your ONLY focus is: {batch['focus']}
-        You MUST completely ignore your pre-trained knowledge of other PRINCE2 chapters. Base the questions strictly on this data:
+        You MUST completely ignore your pre-trained knowledge of other PRINCE2 chapters. Base the questions strictly on this project context:
+
+        <project_context>
+        {scenario}
+        </project_context>
 
         <syllabus_data>
         {syllabus_context}
         </syllabus_data>
-
-        <target_scenario>
-        {scenario}
-        </target_scenario>
-
-        <role_mapping>
-        {roles_outline}
-        </role_mapping>
 
         <style_reference_golden_data>
         {"\n".join(scenarios_xml)}
@@ -137,7 +133,7 @@ def generate_exam():
         The 'topic' field MUST explicitly start with "{batch['category']} - ". Do not deviate from this prefix.
 
         Target JSON Schema:
-        [{{'id':int, 'topic':'{batch['category']} - [Specific Sub-topic]', 'question':str, 'options':{{'A':str,'B':str,'C':str,'D':str}}, 'answer':str, 'rationale':str}}]
+        [{{'id':int, 'category':'{batch['category']}', 'topic':'{batch['category']} - [Specific Sub-topic]', 'question':str, 'options':{{'A':str,'B':str,'C':str,'D':str}}, 'answer':str, 'rationale':str}}]
         """
 
         max_retries = 3
@@ -152,6 +148,8 @@ def generate_exam():
                 )
                 
                 raw_text = response.content[0].text
+                
+                # Hardened extraction logic
                 start_idx = raw_text.find('[')
                 end_idx = raw_text.rfind(']') + 1
                 
@@ -159,25 +157,26 @@ def generate_exam():
                     clean_json = raw_text[start_idx:end_idx]
                     batch_data = json.loads(clean_json)
                     
-                    # AGGRESSIVE KILL SWITCH: Force-override topic prefix to prevent semantic bleed
+                    # Programmatic Kill Switch: Force category and topic integrity
                     for q in batch_data:
-                        # Strip any existing prefix Claude might have hallucinated and force the correct one
-                        clean_topic = q.get('topic', '').split(' - ')[-1]
+                        q['category'] = batch['category']
+                        raw_topic = q.get('topic', '')
+                        if ' - ' in raw_topic:
+                            # maxsplit=1 ensures we don't destroy inner hyphens
+                            clean_topic = raw_topic.split(' - ', 1)[-1].strip()
+                        else:
+                            clean_topic = raw_topic.strip()
                         q['topic'] = f"{batch['category']} - {clean_topic}"
                     
                     full_exam.extend(batch_data)
                     with open(DATA_FILE, "w", encoding="utf-8") as f:
                         json.dump(full_exam, f, indent=4)
                     
-                    in_tok = response.usage.input_tokens
-                    out_tok = response.usage.output_tokens
-                    
                     print(f"[Success] Mined {len(batch_data)} questions. Checkpoint saved.")
-                    print(f"[Audit] Cost for batch: Input: {in_tok} | Output: {out_tok}")
                     batch_success = True
                     break
                 else:
-                    raise ValueError("No JSON array brackets found.")
+                    raise ValueError("No JSON array found in response.")
             except Exception as e:
                 print(f"[Error] {batch['name']} Attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
