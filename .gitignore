@@ -1,0 +1,13 @@
+# Ignore virtual environment
+.venv/
+
+# Ignore raw documents and parsed outputs
+data/
+*.pdf
+*.docx
+*.doc
+*.md
+
+# Ignore Python cache and environment variables
+__pycache__/
+.env
