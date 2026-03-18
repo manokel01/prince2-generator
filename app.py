@@ -60,10 +60,8 @@ class RationaleModal(ModalScreen):
         self.correct_ans = correct_ans
 
     def compose(self) -> ComposeResult:
-        # Dynamic Header
         header_text = "CORRECT" if self.is_correct else f"INCORRECT - The correct answer is {self.correct_ans}"
         
-        # Dynamic String Replacement to fix cognitive dissonance
         cleaned_rationale = self.rationale.replace("**Why this is correct:**", f"**Why Option {self.correct_ans} is correct:**")
         cleaned_rationale = cleaned_rationale.replace("Why this is correct:", f"**Why Option {self.correct_ans} is correct:**")
 
@@ -88,7 +86,7 @@ class RationaleModal(ModalScreen):
         self.query_one("#rationale-scroll").scroll_relative(y=-3, animate=False)
 
 class ExamApp(App):
-    theme = "textual-light"  # Natively enforces white background, black letters
+    theme = "textual-light"
     
     CSS = """
     ScenarioModal, RationaleModal {
@@ -103,6 +101,7 @@ class ExamApp(App):
         border-right: solid #cccccc;
         padding: 1;
         height: 100%;
+        overflow: hidden;
     }
     #content-area {
         padding: 2;
@@ -116,51 +115,98 @@ class ExamApp(App):
         background: transparent;
         border: none;
     }
-    ListView:focus {
-        border: none;
-    }
+    
+    /* OPTIONS LIST */
     #options-list {
         height: auto;
         margin-top: 1;
         margin-bottom: 1;
     }
+    #options-list ListItem {
+        height: auto;
+        padding: 1;
+        background: #ffffff;
+    }
+    #options-list Label {
+        height: auto;
+        width: 100%;
+        color: #000000;
+    }
+    #options-list ListItem:hover {
+        background: #eeeeee;
+    }
+    
+    /* Persistent Lock for Selection Logic */
+    ListView#options-list ListItem.active-opt,
+    ListView#options-list ListItem.--highlight {
+        background: #d0d0d0;
+    }
+    
+    /* Specificity Hardening for Red Selection */
+    ListView#options-list ListItem.active-opt Label,
+    ListView#options-list ListItem.--highlight Label {
+        color: #dd0000 !important;
+        text-style: bold;
+    }
+    
+    /* SIDEBAR LIST */
     #q-list {
         margin-top: 1;
         height: 1fr;
         border-top: solid #cccccc;
         padding-top: 1;
+        overflow-x: hidden;
     }
-    ListItem {
+    #q-list ListItem {
         padding: 1;
         background: #ffffff;
-        color: #000000;
+        height: auto;
+        width: 100%;
+        overflow: hidden; /* Prevent boundary bleed */
     }
-    ListItem:hover {
-        background: #e0e0e0;
+    #q-list Horizontal {
+        height: 1;
+        width: 100%;
+        overflow: hidden; /* Force bounds containment */
     }
-    ListItem:focus {
+    #q-list ListItem:hover {
+        background: #eeeeee;
+    }
+    /* Static Sidebar Active State */
+    #q-list ListItem.active-q {
         background: #d0d0d0;
     }
-    ListItem.--highlight {
-        background: #cccccc;
-        color: #000000;
+    
+    .bookmark-icon {
+        width: 3;
+        color: #666666; /* Bolder: darkened from #cccccc */
         text-style: bold;
+        text-align: center;
+        height: 1;
     }
-    .answered-item Label {
+    .bookmark-icon.bookmarked {
+        color: #000000;
+    }
+    .q-label {
+        width: 1fr;
+        height: 1;
+        color: #000000;
+        overflow: hidden;
+    }
+    .answered-item .q-label {
         color: #888888;
     }
+    
+    /* MODALS & MISC */
     #modal-container {
         width: 70%;
         height: auto;
         background: #ffffff;
         border: solid #000000;
         padding: 2;
-        color: #000000;
     }
     #rationale-scroll {
         max-height: 50vh;
-        scrollbar-background: #eeeeee;
-        scrollbar-color: #aaaaaa;
         margin-bottom: 1;
     }
     #scenario-modal-container {
@@ -169,26 +215,11 @@ class ExamApp(App):
         background: #ffffff;
         border: solid #000000;
         padding: 2;
-        color: #000000;
     }
     #scenario-scroll {
         height: 1fr;
-        scrollbar-background: #eeeeee;
-        scrollbar-color: #aaaaaa;
     }
     #scenario-title {
-        text-align: center;
-        width: 100%;
-        text-style: bold;
-        color: #000000;
-        margin-bottom: 1;
-    }
-    #scenario-close-hint {
-        color: #666666;
-        text-align: center;
-        margin-top: 1;
-    }
-    #status-label {
         text-align: center;
         width: 100%;
         text-style: bold;
@@ -196,13 +227,6 @@ class ExamApp(App):
     }
     .correct { color: #008800; }
     .incorrect { color: #dd0000; }
-    #close-hint {
-        display: none; /* Replaced by OK button */
-    }
-    #tab-hint {
-        color: #666666;
-        margin-top: 1;
-    }
     #timer-label {
         text-align: center;
         text-style: bold;
@@ -216,10 +240,6 @@ class ExamApp(App):
         background: #cccccc;
     }
     #submit-btn {
-        width: 100%;
-        margin-top: 1;
-    }
-    #btn-ok {
         width: 100%;
         margin-top: 1;
     }
@@ -241,6 +261,7 @@ class ExamApp(App):
         self.score = 0
         self.scenario_text = ""
         self.answered = set()
+        self.bookmarks = set()
         self.time_left = 190 * 60
         self.timer_paused = False
 
@@ -251,7 +272,6 @@ class ExamApp(App):
                 with open(data_file, "r", encoding="utf-8") as f:
                     self.exam_data = json.load(f)[:70]
             
-            # Simplified for Unified Narrative Grounding
             scenario_path = Path("data/target_scenario/Louistown_scenario.md")
             if scenario_path.exists():
                 self.scenario_text = scenario_path.read_text(encoding="utf-8").strip()
@@ -276,7 +296,7 @@ class ExamApp(App):
                 yield Label("PRINCE2 PROCTOR", id="title")
                 yield Label("Time: 190:00", id="timer-label")
                 yield Label("Progress: 0/70", id="progress")
-                yield Label("Score: 0", id="score-label")
+                yield Label("Score: 0/70", id="score-label")
                 yield Label("Tab: Switch Panel\np: Pause Timer", id="tab-hint")
                 yield ListView(id="q-list")
             with Vertical(id="content-area"):
@@ -289,9 +309,6 @@ class ExamApp(App):
         if not self.timer_paused and self.time_left > 0:
             self.time_left -= 1
             self.update_timer_display()
-            if self.time_left == 0:
-                self.timer_paused = True
-                self.notify("Time is up!", severity="warning")
 
     def update_timer_display(self):
         mins, secs = divmod(self.time_left, 60)
@@ -308,27 +325,51 @@ class ExamApp(App):
     def on_click(self, event: Click) -> None:
         if event.control and event.control.id == "timer-label":
             self.action_toggle_pause()
+            
+        elif event.control and event.control.has_class("bookmark-icon"):
+            try:
+                q_idx = int(event.control.id.split("-")[1])
+                if q_idx in self.bookmarks:
+                    self.bookmarks.remove(q_idx)
+                    event.control.update("○")
+                    event.control.remove_class("bookmarked")
+                else:
+                    self.bookmarks.add(q_idx)
+                    event.control.update("●")
+                    event.control.add_class("bookmarked")
+                event.stop()
+            except Exception:
+                pass
 
     def populate_sidebar(self):
         q_list = self.query_one("#q-list")
         q_list.clear()
         for i in range(len(self.exam_data)):
             mark = " [✓]" if i in self.answered else ""
-            item = ListItem(Label(f"Question {i+1}{mark}"), name=str(i))
+            b_icon = "●" if i in self.bookmarks else "○"
+            
+            bm_label = Label(b_icon, id=f"bm-{i}", classes="bookmark-icon")
+            if i in self.bookmarks:
+                bm_label.add_class("bookmarked")
+                
+            q_label = Label(f"Question {i+1}{mark}", classes="q-label")
+            layout = Horizontal(bm_label, q_label)
+            
+            item = ListItem(layout, name=str(i))
+            if i == self.current_idx:
+                item.add_class("active-q")
             if i in self.answered:
                 item.add_class("answered-item")
             q_list.append(item)
 
     def update_question(self):
-        if not self.exam_data:
-            return
-            
+        if not self.exam_data: return
+        
         if self.current_idx >= len(self.exam_data):
             self.query_one("#question-display").update(f"EXAM COMPLETE\nFinal Score: {self.score}/{len(self.exam_data)}")
             self.query_one("#options-list").clear()
             self.query_one("#submit-btn").display = False
             self.timer_paused = True
-            self.update_timer_display()
             return
 
         self.query_one("#submit-btn").display = True
@@ -337,27 +378,32 @@ class ExamApp(App):
         
         list_view = self.query_one("#options-list")
         list_view.clear()
-        
         options = q.get('options', {})
         for key in sorted(options.keys()):
-            val = options[key]
-            list_view.append(ListItem(Label(f"{key}) {val}"), name=key))
+            list_view.append(ListItem(Label(f"{key}) {options[key]}"), name=key))
         
-        self.query_one("#progress").update(f"Progress: {self.current_idx + 1}/{len(self.exam_data)}")
+        self.query_one("#progress").update(f"Progress: {len(self.answered)}/{len(self.exam_data)}")
         
         q_list = self.query_one("#q-list")
         q_list.index = self.current_idx
+        
+        # Enforce static active state in sidebar
+        for i, item in enumerate(q_list.children):
+            if i == self.current_idx:
+                item.add_class("active-q")
+            else:
+                item.remove_class("active-q")
 
     def on_list_view_selected(self, event: ListView.Selected):
-        list_id = event.list_view.id
-        
-        if list_id == "q-list":
+        if event.list_view.id == "q-list":
             self.current_idx = int(event.item.name)
             self.update_question()
             self.query_one("#options-list").focus()
-            
-        elif list_id == "options-list":
-            pass
+        elif event.list_view.id == "options-list":
+            for item in event.list_view.children:
+                item.remove_class("active-opt")
+            if event.item:
+                event.item.add_class("active-opt")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "submit-btn":
@@ -365,70 +411,64 @@ class ExamApp(App):
 
     def submit_answer(self):
         if self.current_idx in self.answered:
-            self.notify("Already answered. Skipping...", severity="warning")
             self.current_idx += 1
             self.update_question()
             return
-
+            
         opt_list = self.query_one("#options-list")
-        if opt_list.index is None:
+        choice = None
+        
+        for item in opt_list.children:
+            if item.has_class("active-opt"):
+                choice = item.name
+                break
+                
+        if not choice and opt_list.highlighted_child is not None:
+            choice = opt_list.highlighted_child.name
+            
+        if not choice: 
             self.notify("Please select an answer first.", severity="warning")
             return
-
-        selected_item = opt_list.highlighted_child
-        if not selected_item: return
-        choice = selected_item.name
-        
+            
         q = self.exam_data[self.current_idx]
         correct_ans = q.get('answer', '')
         is_correct = choice == correct_ans
         
-        if is_correct:
-            self.score += 1
-            self.query_one("#score-label").update(f"Score: {self.score}")
+        if is_correct: self.score += 1
 
         self.answered.add(self.current_idx)
+        self.query_one("#score-label").update(f"Score: {self.score}/{len(self.exam_data)}")
+        self.query_one("#progress").update(f"Progress: {len(self.answered)}/{len(self.exam_data)}")
         
         try:
-            q_list = self.query_one("#q-list")
-            target_item = q_list.children[self.current_idx]
-            target_item.query_one(Label).update(f"Question {self.current_idx + 1} [✓]")
+            target_item = self.query_one("#q-list").children[self.current_idx]
+            target_item.query_one(".q-label", Label).update(f"Question {self.current_idx + 1} [✓]")
             target_item.add_class("answered-item")
-        except Exception:
-            pass
+        except: pass
 
         def after_modal(_=None):
             self.current_idx += 1
             self.update_question()
             self.query_one("#options-list").focus()
 
-        self.push_screen(RationaleModal(q.get('rationale', 'No rationale provided.'), is_correct, correct_ans), callback=after_modal)
+        self.push_screen(RationaleModal(q.get('rationale', ''), is_correct, correct_ans), callback=after_modal)
 
     def action_switch_focus(self):
-        q_list = self.query_one("#q-list")
-        opt_list = self.query_one("#options-list")
-        if q_list.has_focus:
-            opt_list.focus()
-        else:
-            q_list.focus()
+        q = self.query_one("#q-list")
+        o = self.query_one("#options-list")
+        if q.has_focus: o.focus()
+        else: q.focus()
 
     def action_cursor_down(self):
-        if self.query_one("#options-list").has_focus:
-            self.query_one("#options-list").action_cursor_down()
-        elif self.query_one("#q-list").has_focus:
-            self.query_one("#q-list").action_cursor_down()
+        if self.query_one("#options-list").has_focus: self.query_one("#options-list").action_cursor_down()
+        elif self.query_one("#q-list").has_focus: self.query_one("#q-list").action_cursor_down()
 
     def action_cursor_up(self):
-        if self.query_one("#options-list").has_focus:
-            self.query_one("#options-list").action_cursor_up()
-        elif self.query_one("#q-list").has_focus:
-            self.query_one("#q-list").action_cursor_up()
+        if self.query_one("#options-list").has_focus: self.query_one("#options-list").action_cursor_up()
+        elif self.query_one("#q-list").has_focus: self.query_one("#q-list").action_cursor_up()
 
     def action_toggle_scenario(self):
-        if self.scenario_text:
-            self.push_screen(ScenarioModal(self.scenario_text))
-        else:
-            self.notify("Scenario text not loaded.", severity="warning")
+        if self.scenario_text: self.push_screen(ScenarioModal(self.scenario_text))
 
 if __name__ == "__main__":
     ExamApp().run()
