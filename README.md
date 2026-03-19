@@ -56,9 +56,9 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
 
 - **Unified Scenario Reference:** Dedicated modal overlay allows users to consult the project scenario, personnel profiles, and schedule at any time (`S`) without losing their place in the exam.
 
-![Dark Mode Exam View](assets/dark-theme1.png)
 ![Dark Mode Exam View](assets/dark-theme2.png)
-![Dark Mode Exam View](assets/bright-theme1.png)
+![Dark Mode Exam View](assets/dark-theme1.png)
+![Dark Mode Exam View](assets/bright-theme.png)
 
 ## Architecture & Workflow
 
