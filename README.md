@@ -42,13 +42,23 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
 
 ## Interactive Exam Environment Features
 
--   **Native Void Aesthetic:** #000000 background with high-contrast white text to mimic standard exam proctoring environments.
+- **High-Fidelity Exam Simulation:** The interface is meticulously designed to mimic the actual PeopleCert proctoring environment, providing a highly realistic, distraction-free testing experience.
 
--   **Decoupled Selection Logic:** Options can be highlighted via mouse or keyboard, but require an explicit "Next" button interaction to submit, preventing accidental clicks.
+- **Dynamic Theme Switching:** Supports seamless toggling between a high-contrast dark mode (default) and a bright light mode to accommodate user preferences and reduce visual fatigue.
 
--   **Integrated Exam Timer:** A 190-minute countdown clock with interactive pause/unpause functionality.
+- **Comprehensive Feedback Window:** Upon submitting an answer, a dedicated modal provides immediate feedback, including the correct answer, detailed rationales explaining why each option is correct or incorrect, and direct citations to the official manual.
 
--   **Unified Scenario Reference:** Access the full narrative, personnel profiles, and schedule via the `s` key without leaving the current question.
+- **Question Bookmarking:** Users can flag specific questions during the exam using a visual bookmark toggle, allowing for easy identification and later review.
+
+- **Customizable Exam Timer:** Features a built-in countdown clock (defaulting to 190 minutes) that can be paused, unpaused, or manually adjusted to a custom duration to suit varying study constraints.
+
+- **Decoupled Selection Logic:** Options can be highlighted via mouse or keyboard, but require an explicit "Next" button interaction to lock and submit answers, preventing accidental clicks.
+
+- **Unified Scenario Reference:** Dedicated modal overlay allows users to consult the project scenario, personnel profiles, and schedule at any time (`S`) without losing their place in the exam.
+
+![Dark Mode Exam View](assets/dark-theme1.png)
+![Dark Mode Exam View](assets/dark-theme2.png)
+![Dark Mode Exam View](assets/bright-theme1.png)
 
 ## Architecture & Workflow
 

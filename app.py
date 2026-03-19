@@ -1,11 +1,45 @@
 import json
+import re
 from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, ScrollableContainer
-from textual.widgets import Header, Footer, Static, Label, ListItem, ListView, Markdown, Button
+from textual.widgets import Header, Footer, Static, Label, ListItem, ListView, Markdown, Button, Input
 from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.events import Click
+
+class TimerModal(ModalScreen):
+    """Modal to input desired exam time in minutes."""
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Label("Set Exam Duration (Minutes):", id="timer-modal-title"),
+            Input(placeholder="Enter minutes (e.g., 190)", id="timer-input", type="integer"),
+            Horizontal(
+                Button("Set", id="btn-set"),
+                Button("Cancel", id="btn-cancel"),
+                id="timer-modal-buttons"
+            ),
+            id="timer-modal-container"
+        )
+
+    def on_mount(self) -> None:
+        self.query_one("#timer-input").focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-set":
+            self.submit()
+        else:
+            self.dismiss()
+
+    def on_input_submitted(self) -> None:
+        self.submit()
+
+    def submit(self) -> None:
+        value = self.query_one("#timer-input").value
+        if value.isdigit():
+            self.dismiss(int(value))
+        else:
+            self.dismiss()
 
 class ScenarioModal(ModalScreen):
     """Full-screen reading view for the scenario overlay."""
@@ -60,20 +94,27 @@ class RationaleModal(ModalScreen):
         self.correct_ans = correct_ans
 
     def compose(self) -> ComposeResult:
-        header_text = "CORRECT" if self.is_correct else f"INCORRECT - The correct answer is {self.correct_ans}"
+        if self.is_correct:
+            header_text = "[#3fb950]CORRECT[/#3fb950]"
+        else:
+            header_text = f"[#f85149]INCORRECT[/#f85149] - The correct answer is {self.correct_ans}"
         
         cleaned_rationale = self.rationale.replace("**Why this is correct:**", f"**Why Option {self.correct_ans} is correct:**")
         cleaned_rationale = cleaned_rationale.replace("Why this is correct:", f"**Why Option {self.correct_ans} is correct:**")
 
         yield Vertical(
-            Label(header_text, id="status-label", classes="correct" if self.is_correct else "incorrect"),
-            ScrollableContainer(Markdown(cleaned_rationale, id="rationale-text"), id="rationale-scroll"),
-            Button("OK", id="btn-ok", variant="success"),
+            Label(header_text, id="status-label"),
+            ScrollableContainer(
+                Markdown(cleaned_rationale, id="rationale-text"),
+                id="rationale-scroll"
+            ),
+            Button("OK", id="btn-ok"),
             id="modal-container"
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-ok":
+            event.stop() 
             self.dismiss()
 
     def action_dismiss(self) -> None:
@@ -86,19 +127,25 @@ class RationaleModal(ModalScreen):
         self.query_one("#rationale-scroll").scroll_relative(y=-3, animate=False)
 
 class ExamApp(App):
-    theme = "textual-light"
+    theme = "textual-dark"
     
     CSS = """
-    ScenarioModal, RationaleModal {
+    /* --- DARK THEME (DEFAULT) --- */
+    Screen {
+        background: #0d1117; 
+        scrollbar-color: #30363d;
+        scrollbar-background: transparent;
+    }
+    ScenarioModal, RationaleModal, TimerModal {
         align: center middle;
     }
     #main-layout {
         height: 100%;
     }
     #sidebar {
-        width: 30;
-        background: #f4f4f4;
-        border-right: solid #cccccc;
+        width: 35;
+        background: #0d1117;
+        border-right: solid #30363d;
         padding: 1;
         height: 100%;
         overflow: hidden;
@@ -107,9 +154,15 @@ class ExamApp(App):
         padding: 2;
         height: 100%;
     }
+    #question-scroll {
+        height: 1fr;
+        padding-right: 1;
+        scrollbar-color: #30363d;
+        scrollbar-background: transparent;
+    }
     #question-display {
-        margin-bottom: 2;
-        color: #000000;
+        margin-bottom: 1; 
+        color: #c9d1d9;
     }
     ListView {
         background: transparent;
@@ -124,28 +177,29 @@ class ExamApp(App):
     }
     #options-list ListItem {
         height: auto;
-        padding: 1;
-        background: #ffffff;
+        padding: 0 1;
+        margin-bottom: 1;
+        background: transparent;
+        border: round #30363d;
     }
     #options-list Label {
         height: auto;
         width: 100%;
-        color: #000000;
+        color: #c9d1d9;
     }
     #options-list ListItem:hover {
-        background: #eeeeee;
+        background: #161b22;
     }
     
-    /* Persistent Lock for Selection Logic */
     ListView#options-list ListItem.active-opt,
     ListView#options-list ListItem.--highlight {
-        background: #d0d0d0;
+        background: transparent;
+        border: round #58a6ff;
     }
     
-    /* Specificity Hardening for Red Selection */
     ListView#options-list ListItem.active-opt Label,
     ListView#options-list ListItem.--highlight Label {
-        color: #dd0000 !important;
+        color: #58a6ff !important;
         text-style: bold;
     }
     
@@ -153,101 +207,244 @@ class ExamApp(App):
     #q-list {
         margin-top: 1;
         height: 1fr;
-        border-top: solid #cccccc;
+        border-top: solid #30363d;
         padding-top: 1;
         overflow-x: hidden;
     }
     #q-list ListItem {
         padding: 1;
-        background: #ffffff;
+        background: transparent;
         height: auto;
         width: 100%;
-        overflow: hidden; /* Prevent boundary bleed */
+        overflow: hidden;
     }
     #q-list Horizontal {
         height: 1;
         width: 100%;
-        overflow: hidden; /* Force bounds containment */
+        overflow: hidden;
     }
     #q-list ListItem:hover {
-        background: #eeeeee;
+        background: #161b22;
     }
-    /* Static Sidebar Active State */
     #q-list ListItem.active-q {
-        background: #d0d0d0;
+        background: #21262d;
+        border-left: thick #58a6ff;
+    }
+    #q-list ListItem.active-q .q-label {
+        color: #c9d1d9;
+        text-style: bold;
     }
     
     .bookmark-icon {
         width: 3;
-        color: #666666; /* Bolder: darkened from #cccccc */
+        color: #8b949e;
         text-style: bold;
         text-align: center;
         height: 1;
-    }
-    .bookmark-icon.bookmarked {
-        color: #000000;
     }
     .q-label {
         width: 1fr;
         height: 1;
-        color: #000000;
+        color: #8b949e;
         overflow: hidden;
     }
-    .answered-item .q-label {
-        color: #888888;
+    
+    /* Answered and Bookmark overrides */
+    .answered-item .q-label, .answered-item .bookmark-icon {
+        color: #484f58;
+    }
+    .bookmark-icon.bookmarked {
+        color: #f85149 !important;
     }
     
-    /* MODALS & MISC */
+    /* MODALS */
     #modal-container {
         width: 70%;
         height: auto;
-        background: #ffffff;
-        border: solid #000000;
+        background: #161b22;
+        border: round #30363d;
         padding: 2;
+    }
+    #timer-modal-container {
+        width: 70%;
+        height: auto;
+        background: #161b22;
+        border: round #30363d;
+        padding: 2;
+        align-horizontal: center;
     }
     #rationale-scroll {
         max-height: 50vh;
         margin-bottom: 1;
+        scrollbar-color: #30363d;
+        scrollbar-background: transparent;
     }
     #scenario-modal-container {
         width: 80%;
         height: 80%;
-        background: #ffffff;
-        border: solid #000000;
+        background: #161b22;
+        border: round #30363d;
         padding: 2;
     }
     #scenario-scroll {
         height: 1fr;
+        scrollbar-color: #30363d;
+        scrollbar-background: transparent;
     }
-    #scenario-title {
+    #scenario-title, #timer-modal-title {
         text-align: center;
         width: 100%;
         text-style: bold;
         margin-bottom: 1;
+        color: #c9d1d9;
     }
-    .correct { color: #008800; }
-    .incorrect { color: #dd0000; }
+    
+    /* TIMER & BUTTON BAR */
+    #timer-bar {
+        height: auto;
+        align-horizontal: left;
+        margin-top: 1;
+    }
     #timer-label {
         text-align: center;
         text-style: bold;
-        background: #e0e0e0;
-        color: #000000;
-        padding: 1;
-        margin-top: 1;
-        border: solid #cccccc;
+        background: transparent;
+        color: #c9d1d9;
+        padding: 0 1;
+        border: round #30363d;
     }
     #timer-label:hover {
-        background: #cccccc;
+        background: #161b22;
     }
-    #submit-btn {
-        width: 100%;
-        margin-top: 1;
+    #pause-btn, #theme-btn {
+        width: 5;
+        content-align: center middle;
+        text-align: center;
+        background: transparent;
+        color: #8b949e; 
+        padding: 0 1;
+        margin-left: 1;
+        border: round #30363d;
+    }
+    #pause-btn:hover, #theme-btn:hover {
+        background: #161b22;
+    }
+    #pause-btn.paused {
+        color: #c9d1d9; 
+        background: transparent;
+    }
+
+    #score-label {
+        margin-bottom: 1;
+    }
+
+    #timer-input {
+        margin: 1 0;
+        border: round #30363d;
+    }
+    
+    /* BUTTONS */
+    #submit-btn, #btn-ok, #btn-set, #btn-cancel {
+        width: 30;
+        height: 3;
+        margin: 0 0; /* Reduced spacing: Removed top margin, button follows above content closely */
+        content-align: center middle;
+        background: transparent; 
+        color: #c9d1d9;
+        border: round #30363d;
+        text-style: bold;
+    }
+    #submit-btn:hover, #btn-ok:hover, #btn-set:hover, #btn-cancel:hover {
+        background: #161b22;
+    }
+    #timer-modal-buttons {
+        height: auto;
+        align-horizontal: center;
+    }
+    #btn-set { margin-right: 1; }
+
+    /* --- LIGHT THEME OVERRIDES --- */
+    Screen.light-mode { 
+        background: #ffffff; 
+        scrollbar-color: #24292f;      
+        scrollbar-background: #eaeef2; 
+    }
+    Screen.light-mode #sidebar { background: #f6f8fa; border-right: solid #d0d7de; }
+    
+    Screen.light-mode #title,
+    Screen.light-mode #progress,
+    Screen.light-mode #score-label,
+    Screen.light-mode #tab-hint {
+        color: #24292f;
+    }
+    
+    Screen.light-mode Markdown, 
+    Screen.light-mode Label,
+    Screen.light-mode #question-display { 
+        color: #24292f; 
+    }
+    
+    Screen.light-mode #options-list ListItem { border: round #d0d7de; }
+    Screen.light-mode #options-list Label { color: #24292f; }
+    Screen.light-mode #options-list ListItem:hover { background: #eaeef2; }
+    
+    Screen.light-mode ListView#options-list ListItem.--highlight { border: round #0969da; }
+    Screen.light-mode ListView#options-list ListItem.active-opt { border: round #0969da; }
+    Screen.light-mode ListView#options-list ListItem.active-opt Label,
+    Screen.light-mode ListView#options-list ListItem.--highlight Label { color: #0969da !important; }
+    
+    Screen.light-mode #q-list, Screen.light-mode #question-scroll, 
+    Screen.light-mode #rationale-scroll, Screen.light-mode #scenario-scroll { 
+        border-top: solid #d0d7de; 
+        scrollbar-color: #24292f; 
+        scrollbar-background: #eaeef2;
+    }
+    Screen.light-mode #q-list ListItem:hover { background: #eaeef2; }
+    Screen.light-mode #q-list ListItem.active-q { background: #ddf4ff; border-left: thick #0969da; }
+    Screen.light-mode #q-list ListItem.active-q .q-label { color: #24292f; }
+    
+    Screen.light-mode .bookmark-icon { color: #57606a; }
+    Screen.light-mode .q-label { color: #57606a; }
+    Screen.light-mode .answered-item .q-label, Screen.light-mode .answered-item .bookmark-icon { color: #afb8c1; }
+    Screen.light-mode .bookmark-icon.bookmarked { color: #cf222e !important; }
+    
+    Screen.light-mode #modal-container, 
+    Screen.light-mode #scenario-modal-container,
+    Screen.light-mode #timer-modal-container { 
+        background: #ffffff; 
+        border: round #d0d7de; 
+    }
+    Screen.light-mode #scenario-title, Screen.light-mode #timer-modal-title { color: #24292f; }
+    
+    Screen.light-mode #timer-label { color: #24292f; border: round #d0d7de; }
+    Screen.light-mode #timer-label:hover { background: #eaeef2; }
+    
+    Screen.light-mode #timer-input { 
+        background: #ffffff; 
+        color: #24292f; 
+        border: round #d0d7de; 
+    }
+    Screen.light-mode #timer-input:focus { border: round #0969da; }
+    
+    Screen.light-mode #pause-btn, Screen.light-mode #theme-btn { color: #57606a; border: round #d0d7de; }
+    Screen.light-mode #pause-btn:hover, Screen.light-mode #theme-btn:hover { background: #eaeef2; }
+    Screen.light-mode #pause-btn.paused { color: #24292f; background: transparent; }
+    
+    Screen.light-mode #submit-btn, Screen.light-mode #btn-ok, Screen.light-mode #btn-set, Screen.light-mode #btn-cancel { 
+        background: transparent; 
+        color: #24292f; 
+        border: round #d0d7de;
+    }
+    Screen.light-mode #submit-btn:hover, Screen.light-mode #btn-ok:hover, 
+    Screen.light-mode #btn-set:hover, Screen.light-mode #btn-cancel:hover { 
+        background: #eaeef2; 
     }
     """
 
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("s", "toggle_scenario", "Toggle Scenario"),
+        Binding("t", "configure_timer", "Set Timer"),
         Binding("tab", "switch_focus", "Switch Panel Focus"),
         Binding("p", "toggle_pause", "Pause Timer"),
         Binding("j", "cursor_down", "Down", show=False),
@@ -263,7 +460,7 @@ class ExamApp(App):
         self.answered = set()
         self.bookmarks = set()
         self.time_left = 190 * 60
-        self.timer_paused = False
+        self.timer_paused = True # Start paused
 
     def on_mount(self):
         try:
@@ -293,16 +490,20 @@ class ExamApp(App):
         yield Header(show_clock=True)
         with Horizontal(id="main-layout"):
             with Vertical(id="sidebar"):
-                yield Label("PRINCE2 PROCTOR", id="title")
-                yield Label("Time: 190:00", id="timer-label")
+                yield Label("PRINCE Practitioner mock exam", id="title")
+                with Horizontal(id="timer-bar"):
+                    yield Label("Time: 190:00", id="timer-label")
+                    yield Label("▶", id="pause-btn") 
+                    yield Label("◑", id="theme-btn")
                 yield Label("Progress: 0/70", id="progress")
                 yield Label("Score: 0/70", id="score-label")
                 yield Label("Tab: Switch Panel\np: Pause Timer", id="tab-hint")
                 yield ListView(id="q-list")
             with Vertical(id="content-area"):
-                yield Markdown("Loading...", id="question-display")
-                yield ListView(id="options-list")
-                yield Button("Next", id="submit-btn", variant="primary")
+                with ScrollableContainer(id="question-scroll"):
+                    yield Markdown("Loading...", id="question-display")
+                    yield ListView(id="options-list")
+                    yield Button("Next", id="submit-btn")
         yield Footer()
 
     def tick_timer(self):
@@ -312,20 +513,47 @@ class ExamApp(App):
 
     def update_timer_display(self):
         mins, secs = divmod(self.time_left, 60)
-        status = " (PAUSED)" if self.timer_paused else ""
         try:
-            self.query_one("#timer-label").update(f"Time: {mins:02d}:{secs:02d}{status}")
+            self.query_one("#timer-label").update(f"Time: {mins:02d}:{secs:02d}")
         except:
             pass
 
     def action_toggle_pause(self):
         self.timer_paused = not self.timer_paused
+        try:
+            pause_btn = self.query_one("#pause-btn")
+            if self.timer_paused:
+                pause_btn.update("▶")
+                pause_btn.add_class("paused")
+            else:
+                pause_btn.update("⏸")
+                pause_btn.remove_class("paused")
+        except Exception:
+            pass
         self.update_timer_display()
 
+    def action_configure_timer(self) -> None:
+        modal = TimerModal()
+        if self.screen.has_class("light-mode"):
+            modal.add_class("light-mode")
+        
+        def set_time(minutes):
+            if minutes is not None:
+                self.time_left = minutes * 60
+                self.update_timer_display()
+        
+        self.push_screen(modal, set_time)
+
     def on_click(self, event: Click) -> None:
-        if event.control and event.control.id == "timer-label":
+        if event.control and event.control.id == "pause-btn":
             self.action_toggle_pause()
-            
+            event.stop()
+        elif event.control and event.control.id == "timer-label":
+            self.action_configure_timer()
+            event.stop()
+        elif event.control and event.control.id == "theme-btn":
+            self.screen.toggle_class("light-mode")
+            event.stop()
         elif event.control and event.control.has_class("bookmark-icon"):
             try:
                 q_idx = int(event.control.id.split("-")[1])
@@ -362,6 +590,18 @@ class ExamApp(App):
                 item.add_class("answered-item")
             q_list.append(item)
 
+    def format_question_text(self, text: str) -> str:
+        """Systematically cleans visual noise, removes orphan markers, and fixes paragraph spacing."""
+        # 1. Remove markdown bold markers (**)
+        text = text.replace("**", "")
+        # 2. Remove orphan placeholders
+        text = re.sub(r"(Statement|Item|Action) \d+:\s*[._\-\s]+(?=\n|$)", "", text)
+        # 3. Fix paragraph spacing for actual content
+        text = re.sub(r"(?<!^)\s*((Statement|Item|Action) \d+:)", r"\n\n\1", text)
+        # 4. Clean up whitespace
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
+
     def update_question(self):
         if not self.exam_data: return
         
@@ -374,7 +614,8 @@ class ExamApp(App):
 
         self.query_one("#submit-btn").display = True
         q = self.exam_data[self.current_idx]
-        self.query_one("#question-display").update(f"**Q{self.current_idx + 1}:** {q['question']}")
+        formatted_q = self.format_question_text(q['question'])
+        self.query_one("#question-display").update(f"**Q{self.current_idx + 1}:** {formatted_q}")
         
         list_view = self.query_one("#options-list")
         list_view.clear()
@@ -386,8 +627,6 @@ class ExamApp(App):
         
         q_list = self.query_one("#q-list")
         q_list.index = self.current_idx
-        
-        # Enforce static active state in sidebar
         for i, item in enumerate(q_list.children):
             if i == self.current_idx:
                 item.add_class("active-q")
@@ -408,38 +647,32 @@ class ExamApp(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "submit-btn":
             self.submit_answer()
+        elif event.button.id == "btn-ok":
+            self.dismiss()
 
     def submit_answer(self):
         if self.current_idx in self.answered:
             self.current_idx += 1
             self.update_question()
             return
-            
         opt_list = self.query_one("#options-list")
         choice = None
-        
         for item in opt_list.children:
             if item.has_class("active-opt"):
                 choice = item.name
                 break
-                
         if not choice and opt_list.highlighted_child is not None:
             choice = opt_list.highlighted_child.name
-            
         if not choice: 
             self.notify("Please select an answer first.", severity="warning")
             return
-            
         q = self.exam_data[self.current_idx]
         correct_ans = q.get('answer', '')
         is_correct = choice == correct_ans
-        
         if is_correct: self.score += 1
-
         self.answered.add(self.current_idx)
         self.query_one("#score-label").update(f"Score: {self.score}/{len(self.exam_data)}")
         self.query_one("#progress").update(f"Progress: {len(self.answered)}/{len(self.exam_data)}")
-        
         try:
             target_item = self.query_one("#q-list").children[self.current_idx]
             target_item.query_one(".q-label", Label).update(f"Question {self.current_idx + 1} [✓]")
@@ -451,7 +684,10 @@ class ExamApp(App):
             self.update_question()
             self.query_one("#options-list").focus()
 
-        self.push_screen(RationaleModal(q.get('rationale', ''), is_correct, correct_ans), callback=after_modal)
+        modal = RationaleModal(q.get('rationale', ''), is_correct, correct_ans)
+        if self.screen.has_class("light-mode"):
+            modal.add_class("light-mode")
+        self.push_screen(modal, callback=after_modal)
 
     def action_switch_focus(self):
         q = self.query_one("#q-list")
@@ -468,7 +704,11 @@ class ExamApp(App):
         elif self.query_one("#q-list").has_focus: self.query_one("#q-list").action_cursor_up()
 
     def action_toggle_scenario(self):
-        if self.scenario_text: self.push_screen(ScenarioModal(self.scenario_text))
+        if self.scenario_text:
+            modal = ScenarioModal(self.scenario_text)
+            if self.screen.has_class("light-mode"):
+                modal.add_class("light-mode")
+            self.push_screen(modal)
 
 if __name__ == "__main__":
     ExamApp().run()
