@@ -40,22 +40,6 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
 
 -   **Standardized Rationale Template:** 3-part rationale (Why Correct / Why Wrong / Manual Citations) formatted in clean Markdown, stripped of conversational filler.
 
-## Interactive Exam Environment Features
-
-- **High-Fidelity Exam Simulation:** The interface is meticulously designed to mimic the actual PeopleCert proctoring environment, providing a highly realistic, distraction-free testing experience.
-
-- **Dynamic Theme Switching:** Supports seamless toggling between a high-contrast dark mode (default) and a bright light mode to accommodate user preferences and reduce visual fatigue.
-
-- **Comprehensive Feedback Window:** Upon submitting an answer, a dedicated modal provides immediate feedback, including the correct answer, detailed rationales explaining why each option is correct or incorrect, and direct citations to the official manual.
-
-- **Question Bookmarking:** Users can flag specific questions during the exam using a visual bookmark toggle, allowing for easy identification and later review.
-
-- **Customizable Exam Timer:** Features a built-in countdown clock (defaulting to 190 minutes) that can be paused, unpaused, or manually adjusted to a custom duration to suit varying study constraints.
-
-- **Decoupled Selection Logic:** Options can be highlighted via mouse or keyboard, but require an explicit "Next" button interaction to lock and submit answers, preventing accidental clicks.
-
-- **Unified Scenario Reference:** Dedicated modal overlay allows users to consult the project scenario, personnel profiles, and schedule at any time (`S`) without losing their place in the exam.
-
 ## Architecture & Workflow
 
 ```mermaid
@@ -93,6 +77,21 @@ graph TD
     style Validation fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
     style I fill:#000,color:#fff,stroke-width:4px
 ```
+## Interactive Exam Environment Features
+
+- **High-Fidelity Exam Simulation:** The interface is meticulously designed to mimic the actual PeopleCert proctoring environment, providing a highly realistic, distraction-free testing experience.
+
+- **Dynamic Theme Switching:** Supports seamless toggling between a high-contrast dark mode (default) and a bright light mode to accommodate user preferences and reduce visual fatigue.
+
+- **Comprehensive Feedback Window:** Upon submitting an answer, a dedicated modal provides immediate feedback, including the correct answer, detailed rationales explaining why each option is correct or incorrect, and direct citations to the official manual.
+
+- **Question Bookmarking:** Users can flag specific questions during the exam using a visual bookmark toggle, allowing for easy identification and later review.
+
+- **Customizable Exam Timer:** Features a built-in countdown clock (defaulting to 190 minutes) that can be paused, unpaused, or manually adjusted to a custom duration to suit varying study constraints.
+
+- **Decoupled Selection Logic:** Options can be highlighted via mouse or keyboard, but require an explicit "Next" button interaction to lock and submit answers, preventing accidental clicks.
+
+- **Unified Scenario Reference:** Dedicated modal overlay allows users to consult the project scenario, personnel profiles, and schedule at any time (`S`) without losing their place in the exam.
 
 ![Dark Mode Exam View](assets/dark-theme2.png)
 ![Dark Mode Exam View](assets/dark-theme1.png)
