@@ -8,6 +8,41 @@ from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.events import Click
 
+class ExamSelector(ModalScreen):
+    """A simple screen to select from multiple generated exams."""
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Label("Select Exam Set to Load:", id="selector-title"),
+            ListView(id="exam-choice-list"),
+            Button("Cancel", id="btn-cancel"),
+            id="selector-container"
+        )
+
+    def on_mount(self) -> None:
+        exam_list = self.query_one("#exam-choice-list")
+        
+        # Find all JSON files in the exams directory
+        exams = list(Path("exams").glob("*.json"))
+        # Also include the root work-in-progress file if it exists
+        if Path("exam_data.json").exists():
+            exams.append(Path("exam_data.json"))
+            
+        if not exams:
+            exam_list.append(ListItem(Label("No exams found. Please run generator.py"), name=""))
+            return
+            
+        # Sort so newest exams are at the top
+        for path in sorted(exams, reverse=True):
+            exam_list.append(ListItem(Label(f"📄 {path.name}"), name=str(path)))
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        if event.item.name:
+            self.dismiss(event.item.name)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(None)
+
+
 class TimerModal(ModalScreen):
     """Modal to input desired exam time in minutes."""
     def compose(self) -> ComposeResult:
@@ -40,6 +75,7 @@ class TimerModal(ModalScreen):
             self.dismiss(int(value))
         else:
             self.dismiss()
+
 
 class ScenarioModal(ModalScreen):
     """Full-screen reading view for the scenario overlay."""
@@ -74,6 +110,7 @@ class ScenarioModal(ModalScreen):
     def action_scroll_up(self) -> None:
         self.query_one("#scenario-scroll").scroll_relative(y=-3, animate=False)
 
+
 class RationaleModal(ModalScreen):
     """Zero-border rationale feedback."""
     
@@ -99,6 +136,7 @@ class RationaleModal(ModalScreen):
         else:
             header_text = f"[#f85149]INCORRECT[/#f85149] - The correct answer is {self.correct_ans}"
         
+        # Keep this for backward compatibility with V0.1 flat strings
         cleaned_rationale = self.rationale.replace("**Why this is correct:**", f"**Why Option {self.correct_ans} is correct:**")
         cleaned_rationale = cleaned_rationale.replace("Why this is correct:", f"**Why Option {self.correct_ans} is correct:**")
 
@@ -126,6 +164,7 @@ class RationaleModal(ModalScreen):
     def action_scroll_up(self) -> None:
         self.query_one("#rationale-scroll").scroll_relative(y=-3, animate=False)
 
+
 class ExamApp(App):
     theme = "textual-dark"
     
@@ -136,7 +175,7 @@ class ExamApp(App):
         scrollbar-color: #30363d;
         scrollbar-background: transparent;
     }
-    ScenarioModal, RationaleModal, TimerModal {
+    ScenarioModal, RationaleModal, TimerModal, ExamSelector {
         align: center middle;
     }
     #main-layout {
@@ -265,13 +304,17 @@ class ExamApp(App):
         border: round #30363d;
         padding: 2;
     }
-    #timer-modal-container {
+    #timer-modal-container, #selector-container {
         width: 70%;
         height: auto;
         background: #161b22;
         border: round #30363d;
         padding: 2;
         align-horizontal: center;
+    }
+    #selector-container {
+        width: 50%;
+        max-height: 80%;
     }
     #rationale-scroll {
         max-height: 50vh;
@@ -291,12 +334,29 @@ class ExamApp(App):
         scrollbar-color: #30363d;
         scrollbar-background: transparent;
     }
-    #scenario-title, #timer-modal-title {
+    #scenario-title, #timer-modal-title, #selector-title {
         text-align: center;
         width: 100%;
         text-style: bold;
         margin-bottom: 1;
         color: #c9d1d9;
+    }
+    
+    /* EXAM SELECTOR LIST */
+    #exam-choice-list {
+        height: 1fr;
+        margin-bottom: 1;
+        scrollbar-color: #30363d;
+        scrollbar-background: transparent;
+    }
+    #exam-choice-list ListItem {
+        padding: 1;
+        background: transparent;
+        border: round #30363d;
+        margin-bottom: 1;
+    }
+    #exam-choice-list ListItem:hover {
+        background: #21262d;
     }
     
     /* TIMER & BUTTON BAR */
@@ -347,7 +407,7 @@ class ExamApp(App):
     #submit-btn, #btn-ok, #btn-set, #btn-cancel {
         width: 30;
         height: 3;
-        margin: 0 0; /* Reduced spacing: Removed top margin, button follows above content closely */
+        margin: 0 0; 
         content-align: center middle;
         background: transparent; 
         color: #c9d1d9;
@@ -410,11 +470,15 @@ class ExamApp(App):
     
     Screen.light-mode #modal-container, 
     Screen.light-mode #scenario-modal-container,
-    Screen.light-mode #timer-modal-container { 
+    Screen.light-mode #timer-modal-container,
+    Screen.light-mode #selector-container { 
         background: #ffffff; 
         border: round #d0d7de; 
     }
-    Screen.light-mode #scenario-title, Screen.light-mode #timer-modal-title { color: #24292f; }
+    Screen.light-mode #scenario-title, Screen.light-mode #timer-modal-title, Screen.light-mode #selector-title { color: #24292f; }
+    
+    Screen.light-mode #exam-choice-list ListItem { border: round #d0d7de; }
+    Screen.light-mode #exam-choice-list ListItem:hover { background: #eaeef2; }
     
     Screen.light-mode #timer-label { color: #24292f; border: round #d0d7de; }
     Screen.light-mode #timer-label:hover { background: #eaeef2; }
@@ -463,11 +527,30 @@ class ExamApp(App):
         self.timer_paused = True # Start paused
 
     def on_mount(self):
+        # Scan for existing exams
+        exams = list(Path("exams").glob("*.json"))
+        if Path("exam_data.json").exists(): 
+            exams.append(Path("exam_data.json"))
+
+        # Decide whether to show selector or load directly
+        if len(exams) > 1:
+            modal = ExamSelector()
+            if self.screen.has_class("light-mode"):
+                modal.add_class("light-mode")
+            self.push_screen(modal, self.load_selected_exam)
+        elif len(exams) == 1:
+            self.load_selected_exam(str(exams[0]))
+        else:
+            self.notify("No exams found. Please run generator.py first.", severity="error")
+
+    def load_selected_exam(self, file_path):
+        if not file_path:
+            # User canceled selection, or no file passed
+            return
+            
         try:
-            data_file = Path("exam_data.json")
-            if data_file.exists():
-                with open(data_file, "r", encoding="utf-8") as f:
-                    self.exam_data = json.load(f)[:70]
+            with open(file_path, "r", encoding="utf-8") as f:
+                self.exam_data = json.load(f)[:70]
             
             scenario_path = Path("data/target_scenario/Louistown_scenario.md")
             if scenario_path.exists():
@@ -477,8 +560,9 @@ class ExamApp(App):
                 self.populate_sidebar()
                 self.update_question()
                 self.query_one("#options-list").focus() 
+                self.notify(f"Loaded: {Path(file_path).name}")
             else:
-                self.notify("Error: exam_data.json is empty.", severity="error")
+                self.notify("Error: Selected exam file is empty.", severity="error")
                 
             self.timer_interval = self.set_interval(1, self.tick_timer)
             self.update_timer_display()
@@ -655,24 +739,31 @@ class ExamApp(App):
             self.current_idx += 1
             self.update_question()
             return
+            
         opt_list = self.query_one("#options-list")
         choice = None
         for item in opt_list.children:
             if item.has_class("active-opt"):
                 choice = item.name
                 break
+                
         if not choice and opt_list.highlighted_child is not None:
             choice = opt_list.highlighted_child.name
+            
         if not choice: 
             self.notify("Please select an answer first.", severity="warning")
             return
+            
         q = self.exam_data[self.current_idx]
         correct_ans = q.get('answer', '')
         is_correct = choice == correct_ans
+        
         if is_correct: self.score += 1
+        
         self.answered.add(self.current_idx)
         self.query_one("#score-label").update(f"Score: {self.score}/{len(self.exam_data)}")
         self.query_one("#progress").update(f"Progress: {len(self.answered)}/{len(self.exam_data)}")
+        
         try:
             target_item = self.query_one("#q-list").children[self.current_idx]
             target_item.query_one(".q-label", Label).update(f"Question {self.current_idx + 1} [✓]")
@@ -684,9 +775,28 @@ class ExamApp(App):
             self.update_question()
             self.query_one("#options-list").focus()
 
-        modal = RationaleModal(q.get('rationale', ''), is_correct, correct_ans)
+        # V0.2: Dynamically parse the nested rationale schema
+        raw_rationale = q.get('rationale', '')
+        if isinstance(raw_rationale, dict):
+            correct_text = raw_rationale.get('correct', '')
+            wrong_dict = raw_rationale.get('wrong', {})
+            manual_ref = raw_rationale.get('manual_reference', '')
+            
+            formatted_rationale = f"**Why Option {correct_ans} is correct:**\n{correct_text}\n\n**Why the other options are wrong:**\n"
+            for opt_key in sorted(wrong_dict.keys()):
+                if opt_key != correct_ans and wrong_dict.get(opt_key, '').strip():
+                    formatted_rationale += f"- **Option {opt_key}:** {wrong_dict[opt_key]}\n"
+            
+            if manual_ref:
+                formatted_rationale += f"\n**Manual reference:** {manual_ref}"
+        else:
+            # Fallback for V0.1 flat strings
+            formatted_rationale = str(raw_rationale)
+
+        modal = RationaleModal(formatted_rationale, is_correct, correct_ans)
         if self.screen.has_class("light-mode"):
             modal.add_class("light-mode")
+            
         self.push_screen(modal, callback=after_modal)
 
     def action_switch_focus(self):

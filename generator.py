@@ -51,8 +51,9 @@ def get_existing_progress():
     return []
 
 def generate_exam():
-    # Unified Context loading
+    # Unified Context & Spec loading
     scenario = load_data("data/target_scenario/Louistown_scenario.md")
+    exam_spec = load_data("data/golden_datasets/prince2_exam_generation_spec.md")
     
     golden_dir = Path("data/golden_datasets")
     scenarios_xml = []
@@ -61,8 +62,12 @@ def generate_exam():
     
     if golden_dir.exists():
         for md_file in golden_dir.glob("*.md"):
-            content = md_file.read_text(encoding='utf-8')
             name = md_file.name.lower()
+            # Explicitly exclude the spec document from being parsed as a generic golden file
+            if "spec" in name:
+                continue
+                
+            content = md_file.read_text(encoding='utf-8')
             if "scenario" in name:
                 scenarios_xml.append(f"<golden_scenario source='{md_file.name}'>\n{content}\n</golden_scenario>")
             elif "question" in name:
@@ -74,29 +79,15 @@ def generate_exam():
     finished_count = len(full_exam)
     print(f"Found {finished_count} existing questions. Resuming...")
 
-    system_instruction = """
+    # The System Instruction is now entirely driven by your Master Spec
+    system_instruction = f"""
     Act as a PRINCE2 7th Edition Lead Examiner. Your task is to generate high-fidelity, Practitioner-level exam questions.
     
-    CORE RULES:
-    1. PERSONA: You are rigorous, detail-oriented, and mimic the "trap-heavy" style of PeopleCert.
-    2. COGNITIVE LEVEL: Questions MUST be Bloom's Level 3 (Application) or Level 4 (Analysis). NEVER ask for simple definitions or recall. 
-    3. QUESTION FORMAT: Strongly prefer the Practitioner reasoning structure for options: 'Yes, because...', 'Yes, because...', 'No, because...', 'No, because...'.
-    4. MATCHING QUESTIONS: When creating matching questions (e.g., matching 3 items to 5 roles), use the 'Combination Multiple-Choice' format. List the items and roles in the Question body, then provide 4 different mapping combinations as Options A, B, C, and D.
-    5. ROLE ANONYMITY: Never use PRINCE2 role titles (Executive, Senior User, etc.) in questions/options. Use the internal job titles or business roles described in the Project Scenario.
-    6. TRAP LOGIC: Emulate distractor construction: plausible management products in wrong contexts, correct principles applied to wrong roles.
-    7. NOISE ROLES: Utilize the broader personnel and stakeholder profiles in the scenario to create plausible distractor options.
-    8. RATIONALE FORMATTING: The 'rationale' field MUST be objective and agnostic. 
-       - DO NOT include conversational filler (e.g., "You are correct").
-       - DO NOT include the Question ID or the correct letter in the text.
-       - Use this exact Markdown structure:
-         **Why this is correct:** [Brief analysis of the correct mapping/logic]
-         **Why the others are wrong:**
-         - **Option A:** [Why this fails]
-         - **Option B:** [Why this fails]
-         - **Option C:** [Why this fails]
-         **Relevant PRINCE2 Manual Section(s):** [Direct quotes/citations]
-    9. ASSESSMENT CRITERIA: Focus on application of Management Products, RACI accountabilities, and Tailoring.
-    10. OUTPUT FORMAT: Respond ONLY with a valid JSON array. No preamble.
+    You MUST strictly adhere to the following Generation Specification for structure, tone, trap logic, and Bloom's taxonomy:
+    
+    <generation_specification>
+    {exam_spec}
+    </generation_specification>
     """
 
     for idx, batch in enumerate(BATCH_CONFIGS):
@@ -133,7 +124,28 @@ def generate_exam():
         The 'topic' field MUST explicitly start with "{batch['category']} - ". Do not deviate from this prefix.
 
         Target JSON Schema:
-        [{{'id':int, 'category':'{batch['category']}', 'topic':'{batch['category']} - [Specific Sub-topic]', 'question':str, 'options':{{'A':str,'B':str,'C':str,'D':str}}, 'answer':str, 'rationale':str}}]
+        [{{
+          "id": "Q[nn]",
+          "category": "{batch['category']}",
+          "topic": "{batch['category']} - [Specific Sub-topic]",
+          "type": "classic|matching",
+          "scenario_reference": "[character or event from scenario used in stem]",
+          "question": "[question text]",
+          "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}},
+          "answer": "[A|B|C|D]",
+          "rationale": {{
+            "correct": "[why correct option is right]",
+            "wrong": {{
+              "A": "[why wrong, if not correct]",
+              "B": "[why wrong, if not correct]",
+              "C": "[why wrong, if not correct]",
+              "D": "[why wrong, if not correct]"
+            }},
+            "manual_reference": "[section and page range]"
+          }},
+          "bloom_level": "3|4",
+          "difficulty": "medium|hard"
+        }}]
         """
 
         max_retries = 3
