@@ -11,28 +11,36 @@ client = Anthropic(
     timeout=180.0
 )
 
-# RE-BALANCED BATCHES WITH STRICT PROGRAMMATIC GUARDRAILS
+# MICRO-BATCHING TO PREVENT LLM ATTENTION DECAY ("DRIFT")
 BATCH_CONFIGS = [
-    {"name": "B1: Intro", "files": ["01_intro_principles.md"], "count": 7, "category": "Intro/Principles", "focus": "Introduction and the 7 Principles. DO NOT generate questions about Practices, Processes, or People."},
-    {"name": "B2: People", "files": ["02_people.md"], "count": 6, "category": "People", "focus": "People, Team Management, Communication, and Stakeholders. DO NOT generate questions about Practices or Processes."},
+    {"name": "B1: Intro A", "files": ["01_intro_principles.md"], "count": 4, "category": "Intro/Principles", "focus": "Ensure Continued Business Justification, Learn from Experience, Define Roles."},
+    {"name": "B2: Intro B", "files": ["01_intro_principles.md"], "count": 3, "category": "Intro/Principles", "focus": "Manage by Exception, Manage by Stages, Focus on Products, Tailor to Suit."},
     
-    # Practices
-    {"name": "B3: Prac P1-A", "files": ["03_practices_p1.md"], "count": 5, "category": "Practices", "focus": "Practices (e.g., Business Case, Organizing). DO NOT generate questions about Processes."},
-    {"name": "B4: Prac P1-B", "files": ["03_practices_p1.md"], "count": 4, "category": "Practices", "focus": "Practices (e.g., Business Case, Organizing). DO NOT generate questions about Processes."},
-    {"name": "B5: Prac P2-A", "files": ["04_practices_p2.md"], "count": 5, "category": "Practices", "focus": "Practices (e.g., Quality, Plans). DO NOT generate questions about Processes."},
-    {"name": "B6: Prac P2-B", "files": ["04_practices_p2.md"], "count": 4, "category": "Practices", "focus": "Practices (e.g., Quality, Plans). DO NOT generate questions about Processes."},
-    {"name": "B7: Prac P3-A", "files": ["05_practices_p3.md"], "count": 5, "category": "Practices", "focus": "Practices (e.g., Risk). DO NOT generate questions about Processes."},
-    {"name": "B8: Prac P3-B", "files": ["05_practices_p3.md"], "count": 4, "category": "Practices", "focus": "Practices (e.g., Risk). DO NOT generate questions about Processes."},
-    {"name": "B9: Prac P4-A", "files": ["06_practices_p4.md"], "count": 5, "category": "Practices", "focus": "Practices (e.g., Issues, Progress). DO NOT generate questions about Processes."},
-    {"name": "B10: Prac P4-B", "files": ["06_practices_p4.md"], "count": 4, "category": "Practices", "focus": "Practices (e.g., Issues, Progress). DO NOT generate questions about Processes."},
+    {"name": "B3: People A", "files": ["02_people.md"], "count": 3, "category": "People", "focus": "Leading Successful Teams, Communication."},
+    {"name": "B4: People B", "files": ["02_people.md"], "count": 3, "category": "People", "focus": "Leading Successful Change, Stakeholders."},
     
-    # Processes
-    {"name": "B11: Proc P1-A", "files": ["07_processes_p1.md"], "count": 4, "category": "Processes", "focus": "Processes (Starting up, Directing)."},
-    {"name": "B12: Proc P1-B", "files": ["07_processes_p1.md"], "count": 3, "category": "Processes", "focus": "Processes (Starting up, Directing)."},
-    {"name": "B13: Proc P2-A", "files": ["08_processes_p2.md"], "count": 4, "category": "Processes", "focus": "Processes (Initiating, Controlling a Stage)."},
-    {"name": "B14: Proc P2-B", "files": ["08_processes_p2.md"], "count": 3, "category": "Processes", "focus": "Processes (Initiating, Controlling a Stage)."},
-    {"name": "B15: Proc P3-A", "files": ["09_processes_p3.md"], "count": 4, "category": "Processes", "focus": "Processes (Managing Product Delivery, Stage Boundary, Closing)."},
-    {"name": "B16: Proc P3-B", "files": ["09_processes_p3.md"], "count": 3, "category": "Processes", "focus": "Processes (Managing Product Delivery, Stage Boundary, Closing)."}
+    # Practices (Split into chunks of 3 or 4 max)
+    {"name": "B5: Prac P1-A", "files": ["03_practices_p1.md"], "count": 3, "category": "Practices", "focus": "Business Case practice."},
+    {"name": "B6: Prac P1-B", "files": ["03_practices_p1.md"], "count": 3, "category": "Practices", "focus": "Business Case practice."},
+    {"name": "B7: Prac P1-C", "files": ["03_practices_p1.md"], "count": 3, "category": "Practices", "focus": "Organizing practice."},
+    {"name": "B8: Prac P2-A", "files": ["04_practices_p2.md"], "count": 3, "category": "Practices", "focus": "Plans practice."},
+    {"name": "B9: Prac P2-B", "files": ["04_practices_p2.md"], "count": 3, "category": "Practices", "focus": "Plans practice."},
+    {"name": "B10: Prac P2-C", "files": ["04_practices_p2.md"], "count": 3, "category": "Practices", "focus": "Quality practice."},
+    {"name": "B11: Prac P3-A", "files": ["05_practices_p3.md"], "count": 3, "category": "Practices", "focus": "Risk practice."},
+    {"name": "B12: Prac P3-B", "files": ["05_practices_p3.md"], "count": 3, "category": "Practices", "focus": "Risk practice."},
+    {"name": "B13: Prac P3-C", "files": ["05_practices_p3.md"], "count": 3, "category": "Practices", "focus": "Risk practice (focus on Risk Budget and Metrics)."},
+    {"name": "B14: Prac P4-A", "files": ["06_practices_p4.md"], "count": 3, "category": "Practices", "focus": "Issues practice."},
+    {"name": "B15: Prac P4-B", "files": ["06_practices_p4.md"], "count": 3, "category": "Practices", "focus": "Issues practice."},
+    {"name": "B16: Prac P4-C", "files": ["06_practices_p4.md"], "count": 3, "category": "Practices", "focus": "Progress practice."},
+    
+    # Processes (Split into chunks of 3 or 4 max)
+    {"name": "B17: Proc P1-A", "files": ["07_processes_p1.md"], "count": 4, "category": "Processes", "focus": "Starting up a Project process."},
+    {"name": "B18: Proc P1-B", "files": ["07_processes_p1.md"], "count": 3, "category": "Processes", "focus": "Directing a Project process."},
+    {"name": "B19: Proc P2-A", "files": ["08_processes_p2.md"], "count": 4, "category": "Processes", "focus": "Initiating a Project process."},
+    {"name": "B20: Proc P2-B", "files": ["08_processes_p2.md"], "count": 3, "category": "Processes", "focus": "Controlling a Stage process."},
+    {"name": "B21: Proc P3-A", "files": ["09_processes_p3.md"], "count": 3, "category": "Processes", "focus": "Managing Product Delivery process."},
+    {"name": "B22: Proc P3-B", "files": ["09_processes_p3.md"], "count": 2, "category": "Processes", "focus": "Managing a Stage Boundary process."},
+    {"name": "B23: Proc P3-C", "files": ["09_processes_p3.md"], "count": 2, "category": "Processes", "focus": "Closing a Project process."}
 ]
 
 DATA_FILE = Path("exam_data.json")
@@ -52,7 +60,7 @@ def get_existing_progress():
 
 def generate_exam():
     # Unified Context & Spec loading
-    scenario = load_data("data/target_scenario/Louistown_scenario.md")
+    scenario = load_data("data/target_scenario/active_scenario.md")
     exam_spec = load_data("data/golden_datasets/prince2_exam_generation_spec.md")
     
     golden_dir = Path("data/golden_datasets")
@@ -100,53 +108,59 @@ def generate_exam():
         syllabus_context = "\n".join([load_data(f"data/syllabus/{f}") for f in batch['files']])
 
         user_message = f"""
-        Generate {batch['count']} questions.
+                Generate {batch['count']} questions.
+                
+                CRITICAL SCOPE RESTRICTION:
+                For this batch, your ONLY focus is: {batch['focus']}
+                You MUST completely ignore your pre-trained knowledge of other PRINCE2 chapters. Base the questions strictly on this project context:
         
-        CRITICAL SCOPE RESTRICTION:
-        For this batch, your ONLY focus is: {batch['focus']}
-        You MUST completely ignore your pre-trained knowledge of other PRINCE2 chapters. Base the questions strictly on this project context:
-
-        <project_context>
-        {scenario}
-        </project_context>
-
-        <syllabus_data>
-        {syllabus_context}
-        </syllabus_data>
-
-        <style_reference_golden_data>
-        {"\n".join(scenarios_xml)}
-        {"\n".join(questions_xml)}
-        {"\n".join(answers_xml)}
-        </style_reference_golden_data>
+                <project_context>
+                {scenario}
+                </project_context>
         
-        CRITICAL DATA INSTRUCTION: 
-        The 'topic' field MUST explicitly start with "{batch['category']} - ". Do not deviate from this prefix.
-
-        Target JSON Schema:
-        [{{
-          "id": "Q[nn]",
-          "category": "{batch['category']}",
-          "topic": "{batch['category']} - [Specific Sub-topic]",
-          "type": "classic|matching",
-          "scenario_reference": "[character or event from scenario used in stem]",
-          "question": "[question text]",
-          "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}},
-          "answer": "[A|B|C|D]",
-          "rationale": {{
-            "correct": "[why correct option is right]",
-            "wrong": {{
-              "A": "[why wrong, if not correct]",
-              "B": "[why wrong, if not correct]",
-              "C": "[why wrong, if not correct]",
-              "D": "[why wrong, if not correct]"
-            }},
-            "manual_reference": "[section and page range]"
-          }},
-          "bloom_level": "3|4",
-          "difficulty": "medium|hard"
-        }}]
-        """
+                <syllabus_data>
+                {syllabus_context}
+                </syllabus_data>
+        
+                <style_reference_golden_data>
+                {"\n".join(scenarios_xml)}
+                {"\n".join(questions_xml)}
+                {"\n".join(answers_xml)}
+                </style_reference_golden_data>
+                
+                ⚠️ ANTI-BLEED FIREWALL RULE (CRITICAL) ⚠️
+                The <style_reference_golden_data> contains examples from OTHER projects. 
+                YOU ARE STRICTLY FORBIDDEN from using any character names, company names, or events from the golden data. 
+                The golden data is ONLY to teach you the 'Yes/Because' format and Practitioner trap logic.
+                EVERY SINGLE QUESTION you generate MUST be set exclusively within the specific world and characters defined in the <project_context>.
+        
+                CRITICAL DATA INSTRUCTION: 
+                The 'topic' field MUST explicitly start with "{batch['category']} - ". Do not deviate from this prefix.
+        
+                Target JSON Schema:
+                [{{
+                  "id": "Q[nn]",
+                  "category": "{batch['category']}",
+                  "topic": "{batch['category']} - [Specific Sub-topic]",
+                  "type": "classic|matching",
+                  "scenario_reference": "[character or event from scenario used in stem]",
+                  "question": "[question text]",
+                  "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}},
+                  "answer": "[A|B|C|D]",
+                  "rationale": {{
+                    "correct": "[why correct option is right]",
+                    "wrong": {{
+                      "A": "[why wrong, if not correct]",
+                      "B": "[why wrong, if not correct]",
+                      "C": "[why wrong, if not correct]",
+                      "D": "[why wrong, if not correct]"
+                    }},
+                    "manual_reference": "[section and page range]"
+                  }},
+                  "bloom_level": "3|4",
+                  "difficulty": "medium|hard"
+                }}]
+                """
 
         max_retries = 3
         batch_success = False

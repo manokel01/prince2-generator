@@ -550,11 +550,15 @@ class ExamApp(App):
             
         try:
             with open(file_path, "r", encoding="utf-8") as f:
+                # Ensure we only load 70 questions for Practitioner parity
                 self.exam_data = json.load(f)[:70]
             
-            scenario_path = Path("data/target_scenario/Louistown_scenario.md")
+            # AGNOSTIC FIX: Point to the active scenario file
+            scenario_path = Path("data/target_scenario/active_scenario.md")
             if scenario_path.exists():
                 self.scenario_text = scenario_path.read_text(encoding="utf-8").strip()
+            else:
+                self.scenario_text = "⚠️ active_scenario.md not found in data/target_scenario/"
             
             if self.exam_data:
                 self.populate_sidebar()

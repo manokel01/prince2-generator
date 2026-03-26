@@ -16,66 +16,58 @@ def get_cat_id(cat_name):
     return mapping.get(cat_name, 4)
 
 def export_to_markdown(data, timestamp):
-    """Exports the JSON data into two clean Markdown files with timestamps."""
-    # Ensure the exports directory exists
+    """Exports the JSON data into a clean Question Paper and a detailed Answer Key."""
     Path("exports").mkdir(exist_ok=True)
     
-    questions_md = f"# PRINCE2 Practitioner Mock Exam - Questions ({timestamp})\n\n"
-    answers_md = f"# PRINCE2 Practitioner Mock Exam - Answers & Rationales ({timestamp})\n\n"
+    questions_md = f"# PRINCE2 Practitioner Question Paper ({timestamp})\n\n"
+    answers_md = f"# PRINCE2 Practitioner Answer & Rationale Key ({timestamp})\n\n"
 
     for i, q in enumerate(data, 1):
-        # 1. Clean the question text exactly like the TUI does
-        q_text = q.get('question', '')
-        q_text = q_text.replace("**", "")
+        # Clean question text of artifacts
+        q_text = q.get('question', '').replace("**", "").strip()
         q_text = re.sub(r"(Statement|Item|Action) \d+:\s*[._\-\s]+(?=\n|$)", "", q_text)
         q_text = re.sub(r"(?<!^)\s*((Statement|Item|Action) \d+:)", r"\n\n\1", q_text)
         q_text = re.sub(r"\n{3,}", "\n\n", q_text).strip()
 
-        # 2. Build Questions File
-        questions_md += f"### Question {i}\n"
-        questions_md += f"**Topic:** {q.get('topic', 'Unknown')}\n\n"
-        questions_md += f"{q_text}\n\n"
-        
+        # 1. QUESTION PAPER (Clean for Tablet Use - No Spoilers)
+        questions_md += f"### Question {i}\n\n{q_text}\n\n"
         options = q.get('options', {})
         for key in sorted(options.keys()):
             questions_md += f"- **{key})** {options[key]}\n"
         questions_md += "\n---\n\n"
 
-        # 3. Build Answers File
+        # 2. ANSWER KEY (Detailed for Post-Exam Review)
         correct_ans = q.get('answer', '')
         answers_md += f"### Question {i}\n"
+        answers_md += f"**Topic Area:** {q.get('topic', 'Unknown')}\n" 
         answers_md += f"**Correct Answer:** {correct_ans}\n\n"
         
         rationale = q.get('rationale', {})
         if isinstance(rationale, dict):
             answers_md += f"**Why Option {correct_ans} is correct:**\n{rationale.get('correct', '')}\n\n"
             answers_md += "**Why the other options are wrong:**\n"
+            for opt_key in sorted(rationale.get('wrong', {}).keys()):
+                if opt_key != correct_ans:
+                    answers_md += f"- **Option {opt_key}:** {rationale['wrong'].get(opt_key, '')}\n"
             
-            wrong_dict = rationale.get('wrong', {})
-            for opt_key in sorted(wrong_dict.keys()):
-                if opt_key != correct_ans and wrong_dict.get(opt_key, '').strip():
-                    answers_md += f"- **Option {opt_key}:** {wrong_dict[opt_key]}\n"
-            
-            manual_ref = rationale.get('manual_reference', '')
-            if manual_ref:
-                answers_md += f"\n**Manual reference:** {manual_ref}\n"
-        else:
-            # Fallback just in case
-            answers_md += f"{rationale}\n"
+            if rationale.get('manual_reference'):
+                answers_md += f"\n**Manual reference:** {rationale['manual_reference']}\n"
         
         answers_md += "\n---\n\n"
 
-    # 4. Write to disk with timestamped filenames
-    q_file = f"exports/questions_{timestamp}.md"
-    a_file = f"exports/answers_{timestamp}.md"
-    
-    with open(q_file, "w", encoding="utf-8") as f:
-        f.write(questions_md)
-    with open(a_file, "w", encoding="utf-8") as f:
-        f.write(answers_md)
-        
-    print(f"\n📄 Export Complete: '{q_file}' and '{a_file}' generated successfully.")
+    # 3. ADD SYLLABUS TALLY
+    answers_md += "## Performance Tally (Syllabus Breakdown)\n"
+    answers_md += "Use this table to identify which chapters you need to re-read in the manual.\n\n"
+    answers_md += "| Category | Questions | Your Score |\n|---|---|---|\n"
+    answers_md += "| **Principles** | 1–7 | /7 |\n"
+    answers_md += "| **People** | 8–13 | /6 |\n"
+    answers_md += "| **Practices** | 14–49 | /36 |\n"
+    answers_md += "| **Processes** | 50–70 | /21 |\n"
 
+    with open(f"exports/questions_{timestamp}.md", "w") as f: f.write(questions_md)
+    with open(f"exports/answers_{timestamp}.md", "w") as f: f.write(answers_md)
+    
+    print(f"\n📄 Tablet-ready Question Paper and Answer Key generated in 'exports/'.")
 
 def audit_exam_data(repair=False):
     file_path = Path("exam_data.json")
@@ -100,8 +92,6 @@ def audit_exam_data(repair=False):
     
     if repair:
         print("[Mode] Repair enabled. Sorting chronological sequence and fixing structural issues...")
-        
-        # Auto-Sort by chronological PRINCE2 syllabus categories using the explicit category field
         original_order = [q.get('topic') for q in data]
         data.sort(key=lambda q: get_cat_id(q.get('category', '')))
         new_order = [q.get('topic') for q in data]
@@ -137,7 +127,6 @@ def audit_exam_data(repair=False):
             sequence_errors += 1
             issues.append(f"Sequence: Q{i+1} has category '{cat_name}', but index {i+1} is reserved for {expected_cat}.")
 
-    # Print Distribution Summary
     target_dist = {"Intro/Principles": 7, "People": 6, "Practices": 36, "Processes": 21}
     for category, target in target_dist.items():
         actual = topic_counts[category]
@@ -152,9 +141,19 @@ def audit_exam_data(repair=False):
     else:
         print("  ✅ Sequence: Chronological order is correct.")
 
+    # --- LOAD SCENARIO BLACKLIST ONCE ---
+    blacklist_path = Path("data/target_scenario/active_blacklist.json")
+    prohibited_names = []
+    if blacklist_path.exists():
+        try:
+            with open(blacklist_path, "r", encoding="utf-8") as bf:
+                # Pre-convert to lowercase for fast matching
+                prohibited_names = [name.lower() for name in json.load(bf)]
+        except Exception as e:
+            print(f"  ⚠️ Warning: Could not load active_blacklist.json: {e}")
+
     # 3. Individual Question Detail Audit
     for i, q in enumerate(data):
-        # V0.2 Strict Schema Keys
         required_keys = ['id', 'category', 'topic', 'type', 'scenario_reference', 'question', 'options', 'answer', 'rationale', 'bloom_level', 'difficulty']
         if not all(k in q for k in required_keys):
             missing = [k for k in required_keys if k not in q]
@@ -178,14 +177,45 @@ def audit_exam_data(repair=False):
             else:
                 issues.append(f"Q{i+1}: Invalid options ({sorted(list(current_keys))})")
 
+        # --- NEW GUARDRAIL: Trap 10 (RACI Codes) ---
+        for opt_key, opt_text in options.items():
+            # Matches pattern like A¹, R³, (A), (A/R)
+            if re.search(r'\([ARCI]\)|\b[ARCI][¹²³⁴⁵]\b|\(A/R\)', str(opt_text)):
+                issues.append(f"Q{i+1}: Option {opt_key} contains prohibited RACI matrix codes (Trap 10).")
+
         ans = str(q.get('answer', '')).strip()
         if ans not in standard_keys:
             issues.append(f"Q{i+1}: Invalid answer '{ans}'.")
 
-        q_text = q.get('question', '').strip()
+        q_text = str(q.get('question', '')).strip()
         if q_text in unique_questions:
             issues.append(f"Q{i+1}: Duplicate question text detected.")
         unique_questions.add(q_text)
+
+        # --- NEW GUARDRAIL: Entity Name Safety Sweep (Trap 12) ---
+        if prohibited_names:
+            q_text_lower = q_text.lower()
+            for name in prohibited_names:
+                if name in q_text_lower or any(name in str(opt).lower() for opt in options.values()):
+                    issues.append(f"Q{i+1}: Hallucinated entity/role detected: '{name}' (Violates Continuity Mandate).")
+
+        # --- NEW GUARDRAIL: Scenario Mandate (Rule 2.4) ---
+        # A valid question must have a scenario paragraph, meaning it should have multiple sentences.
+        # We split by common sentence enders and count non-empty fragments.
+        sentences = [s for s in re.split(r'[.?\n]', q_text) if len(s.strip()) > 5]
+        if len(sentences) < 2:
+            issues.append(f"Q{i+1}: Question text lacks a scenario preamble. It is too short (Rule 2.4).")
+
+        # --- NEW GUARDRAIL: Rigid Stem Structure (Rule 2.2) ---
+        q_type = q.get('type', 'classic').lower()
+        if q_type == 'classic':
+            # Check if it's a Yes/No/Because question by looking at the options
+            is_yes_no = any(str(opt).startswith("Yes,") or str(opt).startswith("No,") or 
+                            str(opt).startswith("It applies it well,") or str(opt).startswith("It applies it poorly,") 
+                            for opt in options.values())
+            
+            if is_yes_no and not re.search(r'and why\?$', q_text.lower().strip()):
+                issues.append(f"Q{i+1}: Stem violates Rigid Structure (Rule 2.2). Classic Yes/No questions MUST end with ', and why?'.")
 
         # V0.2 Nested Rationale Audit
         rationale = q.get('rationale', {})
@@ -197,7 +227,6 @@ def audit_exam_data(repair=False):
             if not isinstance(wrong_dict, dict) or len(wrong_dict) < 3:
                 issues.append(f"Q{i+1}: Rationale 'wrong' dictionary is malformed or missing distractors.")
         else:
-            # Fallback check just in case the LLM output a flat string despite instructions
             if len(str(rationale)) < 50:
                 issues.append(f"Q{i+1}: Flat rationale is dangerously short.")
 
@@ -209,7 +238,6 @@ def audit_exam_data(repair=False):
     if not issues:
         print("\n✅ 100% CONFIDENCE: Exam is sequenced, V0.2 schema-compliant, and proctor-ready.")
         
-        # --- NEW: Snapshot and Export Logic ---
         Path("exams").mkdir(exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M")
         snapshot_path = f"exams/exam_{ts}.json"
@@ -222,7 +250,7 @@ def audit_exam_data(repair=False):
         
     else:
         print(f"\n❌ AUDIT FAILED: Found {len(issues)} issues.")
-        for issue in issues[:15]:
+        for issue in issues[:20]:
             print(f"  - {issue}")
         print("\n⚠️ Note: Markdown export and JSON snapshot skipped due to audit failures.")
 
