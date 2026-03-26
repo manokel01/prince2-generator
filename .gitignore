@@ -13,17 +13,21 @@ __pycache__/
 *.md
 
 # --- Data Directory Logic ---
-# 1. Ignore the entire data directory by default
-data/
+# 1. Ignore all contents of the data directory
+data/**/*
 
-# 2. Allow the Golden Datasets (Master Spec & Mock Exams)
+# 2. Allow the folders themselves so Git can traverse them
+!data/
 !data/golden_datasets/
-!data/golden_datasets/*.md
-
-# 3. Allow the Active Scenario Configuration
 !data/target_scenario/
+
+# 3. Allow specific critical configuration and spec files
+!data/golden_datasets/*.md
 !data/target_scenario/active_scenario.md
 !data/target_scenario/active_blacklist.json
 
 # --- Allow root level documentation ---
 !README.md
+
+# --- Maintenance & Local Backups ---
+archive/
