@@ -32,7 +32,7 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
 -   **Hardened API Logic:** The generator includes a 65s cooldown between batches and robust JSON extraction to handle conversational LLM "chatter" that would otherwise break `json.loads()`.
 -   **Nested Rationale Schema:** Advanced 3-part rationale (Why Correct / Why Wrong / Manual Citations) generated via strict JSON schema and formatted into clean Markdown, systematically addressing every distractor.
 
-## 🛠️NCore Stack (v0.2-Practitioner)
+## 🛠️Core Stack (v0.2-Practitioner)
 
 - **Logic:** Python 3.14.3 + Anthropic Claude 3.5 Sonnet
 - **TUI:** Textual (v0.2.0 logic for nested rationale)
