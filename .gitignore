@@ -7,27 +7,29 @@ __pycache__/
 .env
 
 # --- Global Document Ignore ---
+# This ignores all raw study materials and generated exports locally.
 *.pdf
 *.docx
 *.doc
 *.md
 
 # --- Data Directory Logic ---
-# 1. Ignore all contents of the data directory
+# 1. Ignore all contents of the data directory recursively.
 data/**/*
 
-# 2. Allow the folders themselves so Git can traverse them
+# 2. Allow the folders themselves so Git can traverse the structure.
 !data/
 !data/golden_datasets/
 !data/target_scenario/
 
-# 3. Allow specific critical configuration and spec files
+# 3. Allow only the non-proprietary architecture and audit files.
+# NOTE: active_scenario.md is EXCLUDED here to prevent copyright issues.
 !data/golden_datasets/*.md
-!data/target_scenario/active_scenario.md
 !data/target_scenario/active_blacklist.json
 
 # --- Allow root level documentation ---
 !README.md
 
 # --- Maintenance & Local Backups ---
+# Keeps your v0.1 files local without cluttering the repository.
 archive/
