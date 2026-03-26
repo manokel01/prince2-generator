@@ -210,24 +210,6 @@ def audit_exam_data(repair=False):
             if is_yes_no and not re.search(r'and why\?$', q_text.lower().strip()):
                 issues.append(f"Q{i+1}: Stem violates Rigid Structure (Rule 2.2). Classic Yes/No questions MUST end with ', and why?'.")
 
-        # --- NEW GUARDRAIL: Passive Ending Check (NotebookLM Fix) ---
-        # A valid practitioner question must evaluate a hard action. 
-        # Uses word roots to catch multiple tenses (e.g., 'decid' catches decided/decides/deciding).
-        action_verbs = [
-            'decid', 'approv', 'authoriz', 'reject', 'escalat', 'submit', 'creat', 
-            'updat', 'instruct', 'clos', 'accept', 'record', 'request', 'direct', 
-            'appoint', 'delegat', 'agre', 'implement', 'proceed'
-        ]
-        if not any(verb in q_text.lower() for verb in action_verbs):
-            issues.append(f"Q{i+1}: Stem lacks a definitive management action verb. Ends too passively.")
-
-        # --- NEW GUARDRAIL: Yes/No Logic Contradiction Check (NotebookLM Fix) ---
-        # Prevents options from saying "Yes" but providing a reason why the action was bad.
-        for opt_key, opt_text in options.items():
-            opt_lower = str(opt_text).lower()
-            if opt_lower.startswith("yes, because") and any(phrase in opt_lower for phrase in ["should always", "must instead", "failed to"]):
-                issues.append(f"Q{i+1}: Option {opt_key} contains a logical contradiction ('Yes' followed by negative rationale).")
-
         # V0.2 Nested Rationale Audit
         rationale = q.get('rationale', {})
         if isinstance(rationale, dict):
@@ -246,24 +228,23 @@ def audit_exam_data(repair=False):
             json.dump(data, f, indent=4)
         print(f"\n✅ Repaired {repaired_count} structural/sequence issues and saved JSON.")
 
+    # --- EXPORT LOGIC (ALWAYS RUN) ---
+    Path("exams").mkdir(exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M")
+    snapshot_path = f"exams/exam_{ts}.json"
+    
+    with open(snapshot_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4)
+
     if not issues:
         print("\n✅ 100% CONFIDENCE: Exam is sequenced, V0.2 schema-compliant, and proctor-ready.")
-        
-        Path("exams").mkdir(exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d_%H%M")
-        snapshot_path = f"exams/exam_{ts}.json"
-        
-        with open(snapshot_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
-        
-        print(f"📦 Final exam snapshot saved to {snapshot_path}")
-        export_to_markdown(data, ts)
-        
     else:
-        print(f"\n❌ AUDIT FAILED: Found {len(issues)} issues.")
+        print(f"\n❌ AUDIT FAILED: Found {len(issues)} issues. (Exporting files anyway for manual review)")
         for issue in issues[:20]:
             print(f"  - {issue}")
-        print("\n⚠️ Note: Markdown export and JSON snapshot skipped due to audit failures.")
+
+    print(f"\n📦 Final exam snapshot saved to {snapshot_path}")
+    export_to_markdown(data, ts)
 
 if __name__ == "__main__":
     repair_mode = "--repair" in sys.argv

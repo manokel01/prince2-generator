@@ -119,7 +119,6 @@ def generate_exam():
             category_warnings = """
             CRITICAL CATEGORY RULES FOR 'PRACTICES':
             1. TRAP 9 AVOIDANCE: Do not conflate tolerances. Stage tolerances are escalated to the Board. Project tolerances are escalated to Corporate/Programme management.
-            2. LOGICAL CONTRADICTION BAN: If an option begins with "Yes, because...", the reasoning MUST logically support the "Yes" action. Do not write "Yes, because [reason they shouldn't do it]".
             """
 
         user_message = f"""
@@ -153,9 +152,7 @@ def generate_exam():
                 1. Use exactly the JSON schema provided below.
                 2. CATEGORY-SPECIFIC RULES: {category_warnings}
                 3. TOPIC PREFIX: The 'topic' field MUST explicitly start with "{batch['category']} - ". Do not use long dashes (—), use only the standard hyphen (-).
-                4. RE-ENFORCING RULE 2.4 (PASSIVE ENDING BAN): The final sentence of the scenario MUST evaluate a definitive management action.
-                   - BAD (Passive): "The Project Manager noticed the stage was exceeding tolerances. Is this appropriate?"
-                   - GOOD (Active): "The Project Manager escalated the deviation to the Project Board. Is this appropriate?"
+                4. OPTION VERBOSITY BAN: Options must be extremely concise (1 sentence). They MUST state the underlying PRINCE2 methodology rule. You are FORBIDDEN from repeating scenario narrative, job titles, or operational actions inside the options themselves.
 
                 Target JSON Schema:
                 [{{
@@ -203,17 +200,48 @@ def generate_exam():
                     clean_json = raw_text[start_idx:end_idx]
                     batch_data = json.loads(clean_json)
                     
-                    # Programmatic Kill Switch: Force category and topic integrity
+                    # Programmatic Kill Switch
                     for q in batch_data:
+                        # 1. Force Category & Topic Integrity
                         q['category'] = batch['category']
-                        # Normalizes common LLM dash hallucinations (— vs -)
                         raw_topic = q.get('topic', '').replace('—', '-')
                         if ' - ' in raw_topic:
-                            # maxsplit=1 ensures we don't destroy inner hyphens
                             clean_topic = raw_topic.split(' - ', 1)[-1].strip()
                         else:
                             clean_topic = raw_topic.strip()
                         q['topic'] = f"{batch['category']} - {clean_topic}"
+                        
+                        # 2. Force A/B (Positive) and C/D (Negative) Option Grouping
+                        options_dict = q.get('options', {})
+                        if len(options_dict) == 4 and all(k in options_dict for k in ['A', 'B', 'C', 'D']):
+                            old_items = list(options_dict.items())
+                            is_rationale = any(str(v).lower().strip().startswith(('yes', 'no', 'it applies')) for v in options_dict.values())
+                            
+                            if is_rationale:
+                                pos_items = [i for i in old_items if str(i[1]).lower().strip().startswith(('yes', 'it applies it well'))]
+                                neg_items = [i for i in old_items if str(i[1]).lower().strip().startswith(('no', 'it applies it poorly'))]
+                                
+                                if len(pos_items) == 2 and len(neg_items) == 2:
+                                    # Create the strictly grouped order
+                                    new_order = [pos_items[0], pos_items[1], neg_items[0], neg_items[1]]
+                                    new_keys = ['A', 'B', 'C', 'D']
+                                    
+                                    # Create a map of where the old letters ended up
+                                    old_to_new = {old_key: new_key for new_key, (old_key, text) in zip(new_keys, new_order)}
+                                    
+                                    # Remap the Options dictionary
+                                    q['options'] = {new_key: text for new_key, (old_key, text) in zip(new_keys, new_order)}
+                                    
+                                    # Safely remap the Answer key to point to the new letter location
+                                    old_ans = str(q.get('answer', '')).strip()
+                                    if old_ans in old_to_new:
+                                        q['answer'] = old_to_new[old_ans]
+                                        
+                                    # Safely remap the Rationale 'wrong' dictionary
+                                    rationale = q.get('rationale', {})
+                                    if 'wrong' in rationale and isinstance(rationale['wrong'], dict):
+                                        new_wrong = {old_to_new.get(k, k): v for k, v in rationale['wrong'].items()}
+                                        rationale['wrong'] = new_wrong
                     
                     full_exam.extend(batch_data)
                     with open(DATA_FILE, "w", encoding="utf-8") as f:
