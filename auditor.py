@@ -199,14 +199,7 @@ def audit_exam_data(repair=False):
                 if name in q_text_lower or any(name in str(opt).lower() for opt in options.values()):
                     issues.append(f"Q{i+1}: Hallucinated entity/role detected: '{name}' (Violates Continuity Mandate).")
 
-        # --- NEW GUARDRAIL: Scenario Mandate (Rule 2.4) ---
-        # A valid question must have a scenario paragraph, meaning it should have multiple sentences.
-        # We split by common sentence enders and count non-empty fragments.
-        sentences = [s for s in re.split(r'[.?\n]', q_text) if len(s.strip()) > 5]
-        if len(sentences) < 2:
-            issues.append(f"Q{i+1}: Question text lacks a scenario preamble. It is too short (Rule 2.4).")
-
-        # --- NEW GUARDRAIL: Rigid Stem Structure (Rule 2.2) ---
+# --- NEW GUARDRAIL: Rigid Stem Structure (Rule 2.2) ---
         q_type = q.get('type', 'classic').lower()
         if q_type == 'classic':
             # Check if it's a Yes/No/Because question by looking at the options
@@ -216,6 +209,19 @@ def audit_exam_data(repair=False):
             
             if is_yes_no and not re.search(r'and why\?$', q_text.lower().strip()):
                 issues.append(f"Q{i+1}: Stem violates Rigid Structure (Rule 2.2). Classic Yes/No questions MUST end with ', and why?'.")
+
+        # --- NEW GUARDRAIL: Passive Ending Check (NotebookLM Fix) ---
+        # A valid practitioner question must evaluate a hard action.
+        action_verbs = ['decided', 'approved', 'authorized', 'rejected', 'escalated', 'submitted', 'created', 'updated', 'instructed', 'closed', 'accepted']
+        if not any(verb in q_text.lower() for verb in action_verbs):
+            issues.append(f"Q{i+1}: Stem lacks a definitive management action verb. Ends too passively.")
+
+        # --- NEW GUARDRAIL: Yes/No Logic Contradiction Check (NotebookLM Fix) ---
+        # Prevents options from saying "Yes" but providing a reason why the action was bad.
+        for opt_key, opt_text in options.items():
+            opt_lower = str(opt_text).lower()
+            if opt_lower.startswith("yes, because") and any(phrase in opt_lower for phrase in ["should always", "must instead", "failed to"]):
+                issues.append(f"Q{i+1}: Option {opt_key} contains a logical contradiction ('Yes' followed by negative rationale).")
 
         # V0.2 Nested Rationale Audit
         rationale = q.get('rationale', {})

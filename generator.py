@@ -107,6 +107,22 @@ def generate_exam():
         print(f"\n--- Running {batch['name']} ---")
         syllabus_context = "\n".join([load_data(f"data/syllabus/{f}") for f in batch['files']])
 
+        # --- DYNAMIC CATEGORY GUARDRAILS ---
+        category_warnings = ""
+        if batch['category'] == "Processes":
+            category_warnings = """
+            CRITICAL CATEGORY RULES FOR 'PROCESSES':
+            1. TRAP 11 AVOIDANCE: If creating a matching question about roles, DO NOT make the answer the same role 3 times (e.g., Executive, Executive, Executive). Mix 'Responsible' and 'Accountable' tasks so the answers vary.
+            2. PERSPECTIVE ALIGNMENT: Ensure the character taking the action actually owns that action in the PRINCE2 RACI tables (e.g., PMs do not 'accept' work packages, Team Managers do).
+            3. PASSIVE ENDING BAN (Rule 2.4): The scenario MUST end with a definitive management action verb (e.g., 'decided', 'approved', 'submitted', 'authorized'). Do not end with 'noticed' or 'raised a concern'.
+            """
+        elif batch['category'] == "Practices":
+            category_warnings = """
+            CRITICAL CATEGORY RULES FOR 'PRACTICES':
+            1. TRAP 9 AVOIDANCE: Do not conflate tolerances. Stage tolerances are escalated to the Board. Project tolerances are escalated to Corporate/Programme management.
+            2. LOGICAL CONTRADICTION BAN: If an option begins with "Yes, because...", the reasoning MUST logically support the "Yes" action. Do not write "Yes, because [reason they shouldn't do it]".
+            """
+
         user_message = f"""
                 Generate {batch['count']} questions.
                 
@@ -117,6 +133,8 @@ def generate_exam():
                 <project_context>
                 {scenario}
                 </project_context>
+                
+                {category_warnings}
         
                 <syllabus_data>
                 {syllabus_context}
