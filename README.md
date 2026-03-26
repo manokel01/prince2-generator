@@ -17,7 +17,7 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
     -   *Solution:* **Programmatic Guardrails (The Kill Switch)** are implemented in `generator.py`. The script physically intercepts the LLM output and forcefully overwrites the `category` and `topic` fields based on the active batch, ensuring a perfect 10/9/51/30 weighting.
 
 -   **3. Unified Narrative Grounding (Anti-Cheat):** LLMs often use provided role mappings as a "cheat sheet," leading to shallow questions that label roles directly (e.g., "The Senior User...").
-    -   *Solution:* Scenario and Roles are merged into a single **Unified Narrative** (`Louistown_scenario.md`). All PRINCE2-specific headers (Board, Assurance) and titles (Executive, Project Manager) are stripped. The LLM is forced to analyze business motivations to determine a person's functional role, restoring the "Hidden State" logic required for Practitioner difficulty.
+    -   *Solution:* Scenario and Roles are merged into a single **Unified Narrative** (`active_scenario.md`). All PRINCE2-specific headers (Board, Assurance) and titles (Executive, Project Manager) are stripped. The LLM is forced to analyze business motivations to determine a person's functional role, restoring the "Hidden State" logic required for Practitioner difficulty.
 
 -   **4. Mathematical Weighting & Chunking:** Feeding the entire 300-page manual to an LLM at once results in "lost-in-the-middle" hallucinations.
     -   *Solution:* **Mathematical Chunking** is utilized. The manual is sliced into 9 specific Markdown chunks under 115KB. The generator processes these individually, ensuring every question is grounded in a specific, high-resolution context window.
@@ -32,6 +32,20 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
 -   **Hardened API Logic:** The generator includes a 65s cooldown between batches and robust JSON extraction to handle conversational LLM "chatter" that would otherwise break `json.loads()`.
 -   **Nested Rationale Schema:** Advanced 3-part rationale (Why Correct / Why Wrong / Manual Citations) generated via strict JSON schema and formatted into clean Markdown, systematically addressing every distractor.
 
+## 🛠️ NCore Stack (v0.2-Practitioner)
+
+- **Logic:** Python 3.14.3 + Anthropic Claude 3.5 Sonnet
+- **TUI:** Textual (v0.2.0 logic for nested rationale)
+- **Parser:** Docling (PDF/Docx -> Markdown)
+- **Audit:** Custom Regex + JSON Blacklist (Scenario-Agnostic)
+
+## 🏗️ Generation Architecture
+
+- **Micro-Batching:** Prevents "Attention Decay" by generating questions in focused chunks of 2-4.
+- **Scenario-Agnosticism:** Decoupled logic from specific exam data; uses `active_scenario.md` and `active_blacklist.json` for plug-and-play scenario swapping.
+- **RACI Integrity:** Programmatic enforcement of PRINCE2 7th Edition responsibility matrices.
+- **Trap Logic:** Integrated 12-point Practitioner trap detection including "The Broken Premise" and "Assurance Hallucinations".
+
 ## Architecture & Workflow
 
 ```mermaid
@@ -39,7 +53,7 @@ graph TD
     %% Inputs
     subgraph Inputs ["1. Data Ingestion (Ground Truth)"]
         A[Official Manual - PDF/DOCX]
-        B[Unified Scenario - MD]
+        B[active_scenario.md & active_blacklist.json]
         C[Golden Datasets & Spec - MD]
     end
 
@@ -51,7 +65,7 @@ graph TD
 
     %% Logic Engine
     subgraph Engine ["3. Generation & Guardrails"]
-        E & B & C -->|RAG Context| F[generator.py - Claude 4.6]
+        E & B & C -->|RAG Context| F[generator.py - Claude 3.5 Sonnet]
         F --> G{Kill Switch}
         G -->|Programmatic Force| H[Sequence-Correct JSON]
     end
