@@ -114,7 +114,6 @@ def generate_exam():
             CRITICAL CATEGORY RULES FOR 'PROCESSES':
             1. TRAP 11 AVOIDANCE: If creating a matching question about roles, DO NOT make the answer the same role 3 times (e.g., Executive, Executive, Executive). Mix 'Responsible' and 'Accountable' tasks so the answers vary.
             2. PERSPECTIVE ALIGNMENT: Ensure the character taking the action actually owns that action in the PRINCE2 RACI tables (e.g., PMs do not 'accept' work packages, Team Managers do).
-            3. PASSIVE ENDING BAN (Rule 2.4): The scenario MUST end with a definitive management action verb (e.g., 'decided', 'approved', 'submitted', 'authorized'). Do not end with 'noticed' or 'raised a concern'.
             """
         elif batch['category'] == "Practices":
             category_warnings = """
@@ -133,8 +132,6 @@ def generate_exam():
                 <project_context>
                 {scenario}
                 </project_context>
-                
-                {category_warnings}
         
                 <syllabus_data>
                 {syllabus_context}
@@ -151,10 +148,15 @@ def generate_exam():
                 YOU ARE STRICTLY FORBIDDEN from using any character names, company names, or events from the golden data. 
                 The golden data is ONLY to teach you the 'Yes/Because' format and Practitioner trap logic.
                 EVERY SINGLE QUESTION you generate MUST be set exclusively within the specific world and characters defined in the <project_context>.
-        
-                CRITICAL DATA INSTRUCTION: 
-                The 'topic' field MUST explicitly start with "{batch['category']} - ". Do not deviate from this prefix.
-        
+
+                JSON GENERATION REQUIREMENTS:
+                1. Use exactly the JSON schema provided below.
+                2. CATEGORY-SPECIFIC RULES: {category_warnings}
+                3. TOPIC PREFIX: The 'topic' field MUST explicitly start with "{batch['category']} - ". Do not use long dashes (—), use only the standard hyphen (-).
+                4. RE-ENFORCING RULE 2.4 (PASSIVE ENDING BAN): The final sentence of the scenario MUST evaluate a definitive management action.
+                   - BAD (Passive): "The Project Manager noticed the stage was exceeding tolerances. Is this appropriate?"
+                   - GOOD (Active): "The Project Manager escalated the deviation to the Project Board. Is this appropriate?"
+
                 Target JSON Schema:
                 [{{
                   "id": "Q[nn]",
@@ -204,7 +206,8 @@ def generate_exam():
                     # Programmatic Kill Switch: Force category and topic integrity
                     for q in batch_data:
                         q['category'] = batch['category']
-                        raw_topic = q.get('topic', '')
+                        # Normalizes common LLM dash hallucinations (— vs -)
+                        raw_topic = q.get('topic', '').replace('—', '-')
                         if ' - ' in raw_topic:
                             # maxsplit=1 ensures we don't destroy inner hyphens
                             clean_topic = raw_topic.split(' - ', 1)[-1].strip()

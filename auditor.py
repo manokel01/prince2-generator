@@ -199,7 +199,7 @@ def audit_exam_data(repair=False):
                 if name in q_text_lower or any(name in str(opt).lower() for opt in options.values()):
                     issues.append(f"Q{i+1}: Hallucinated entity/role detected: '{name}' (Violates Continuity Mandate).")
 
-# --- NEW GUARDRAIL: Rigid Stem Structure (Rule 2.2) ---
+        # --- NEW GUARDRAIL: Rigid Stem Structure (Rule 2.2) ---
         q_type = q.get('type', 'classic').lower()
         if q_type == 'classic':
             # Check if it's a Yes/No/Because question by looking at the options
@@ -211,8 +211,13 @@ def audit_exam_data(repair=False):
                 issues.append(f"Q{i+1}: Stem violates Rigid Structure (Rule 2.2). Classic Yes/No questions MUST end with ', and why?'.")
 
         # --- NEW GUARDRAIL: Passive Ending Check (NotebookLM Fix) ---
-        # A valid practitioner question must evaluate a hard action.
-        action_verbs = ['decided', 'approved', 'authorized', 'rejected', 'escalated', 'submitted', 'created', 'updated', 'instructed', 'closed', 'accepted']
+        # A valid practitioner question must evaluate a hard action. 
+        # Uses word roots to catch multiple tenses (e.g., 'decid' catches decided/decides/deciding).
+        action_verbs = [
+            'decid', 'approv', 'authoriz', 'reject', 'escalat', 'submit', 'creat', 
+            'updat', 'instruct', 'clos', 'accept', 'record', 'request', 'direct', 
+            'appoint', 'delegat', 'agre', 'implement', 'proceed'
+        ]
         if not any(verb in q_text.lower() for verb in action_verbs):
             issues.append(f"Q{i+1}: Stem lacks a definitive management action verb. Ends too passively.")
 
