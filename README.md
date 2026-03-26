@@ -32,19 +32,29 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
 -   **Hardened API Logic:** The generator includes a 65s cooldown between batches and robust JSON extraction to handle conversational LLM "chatter" that would otherwise break `json.loads()`.
 -   **Nested Rationale Schema:** Advanced 3-part rationale (Why Correct / Why Wrong / Manual Citations) generated via strict JSON schema and formatted into clean Markdown, systematically addressing every distractor.
 
-## 🛠️ NCore Stack (v0.2-Practitioner)
+## 🛠️NCore Stack (v0.2-Practitioner)
 
 - **Logic:** Python 3.14.3 + Anthropic Claude 3.5 Sonnet
 - **TUI:** Textual (v0.2.0 logic for nested rationale)
 - **Parser:** Docling (PDF/Docx -> Markdown)
 - **Audit:** Custom Regex + JSON Blacklist (Scenario-Agnostic)
 
-## 🏗️ Generation Architecture
+## Generation Architecture (v0.3 - Production Pipeline)
 
-- **Micro-Batching:** Prevents "Attention Decay" by generating questions in focused chunks of 2-4.
-- **Scenario-Agnosticism:** Decoupled logic from specific exam data; uses `active_scenario.md` and `active_blacklist.json` for plug-and-play scenario swapping.
-- **RACI Integrity:** Programmatic enforcement of PRINCE2 7th Edition responsibility matrices.
-- **Trap Logic:** Integrated 12-point Practitioner trap detection including "The Broken Premise" and "Assurance Hallucinations".
+This project utilizes a **Two-Tier Validation Pipeline** to defeat LLM attention decay and enforce strict PRINCE2 Practitioner constraints.
+
+### 1. The Generation Engine (`generator.py`)
+- **Micro-Batching:** Prevents context window bloat by generating questions in focused, isolated chunks of 2–4.
+- **Recency-Weighted Prompting:** Bypasses LLM "attention decay" by injecting critical constraints (Rule 2.4, Trap 9/11) and explicit GOOD/BAD contrast examples at the absolute bottom of the prompt.
+- **Programmatic Kill Switch:** intercepts and normalizes common LLM typographical hallucinations (e.g., forcing standard hyphens over em-dashes) to ensure 100% downstream audit alignment.
+
+### 2. The Hardened Auditor (`auditor.py`)
+- **Deterministic Semantic Scanning:** Uses root-word regex arrays (e.g., `'decid'`, `'approv'`) to ruthlessly enforce Rule 2.4 (Definitive Management Actions), instantly failing any scenario that ends passively.
+- **Logic Contradiction Traps:** Automatically flags and kills any JSON output containing contradictory option logic (e.g., "Yes, because [they failed to do the right thing]").
+- **Absolute Sequence Integrity:** Refuses to compile the final Markdown exports unless the payload achieves 100% confidence (exactly 70 questions, perfectly sequenced and mapped).
+
+### 3. The Human-in-the-Loop Semantic Check
+- Python regex handles the structural math; **NotebookLM** acts as the final Lead Examiner. Small test batches are run through NotebookLM to verify distractor difficulty, logical cohesion, and granular PRINCE2 role continuity before triggering a full 70-question production run.
 
 ## Architecture & Workflow
 
