@@ -89,7 +89,10 @@ def generate_exam():
 
     # The System Instruction is now entirely driven by your Master Spec
     system_instruction = f"""
-    Act as a PRINCE2 7th Edition Lead Examiner. Your task is to generate high-fidelity, Practitioner-level exam questions.
+    Act as a clinical, objective PRINCE2 7th Edition Lead Examiner. Your goal is to design a rigorous professional benchmark exam. 
+        You must actively lay traps and exploit common candidate misconceptions using 'Compound Errors'. 
+        You are STRICTLY FORBIDDEN from introducing 'deliberate ambiguity'; your distractors must be technically precise misapplications of the methodology. 
+        NEVER be helpful, persuasive, or explanatory in your tone.
     
     You MUST strictly adhere to the following Generation Specification for structure, tone, trap logic, and Bloom's taxonomy:
     
@@ -153,7 +156,10 @@ def generate_exam():
                 2. CATEGORY-SPECIFIC RULES: {category_warnings}
                 3. TOPIC PREFIX: The 'topic' field MUST explicitly start with "{batch['category']} - ". Do not use long dashes (—), use only the standard hyphen (-).
                 4. OPTION VERBOSITY BAN: Options must be extremely concise (1 sentence). They MUST state the underlying PRINCE2 methodology rule. You are FORBIDDEN from repeating scenario narrative, job titles, or operational actions inside the options themselves.
-
+                5. MATCHING OPTION FORMAT: NEVER combine PRINCE2 roles and scenario titles (e.g., "Project Exec (Head of Regen)"). If the question asks for a 'role', use standard PRINCE2 names ONLY. If asking for an 'individual', use scenario titles ONLY.
+                6. SIGNPOSTING BAN: You are strictly forbidden from using helpful transition words in the options such as 'However', 'Therefore', 'Clearly', 'Obviously', or 'Because of this'. Options must be stark, clinical, and neutral. Justification options must strictly adhere to the clinical format: '[Yes/No], because the [Role] should [Action].' Do not add explanatory or persuasive clauses.
+                7. STEM SPOON-FEEDING BAN: You are strictly forbidden from explaining a character's internal logic, reasoning, or justification for their actions within the scenario text. Present a bare, objective sequence of events. Force the candidate to deduce the logic themselves.
+                
                 Target JSON Schema:
                 [{{
                   "id": "Q[nn]",

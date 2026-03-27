@@ -177,9 +177,10 @@ def audit_exam_data(repair=False):
             else:
                 issues.append(f"Q{i+1}: Invalid options ({sorted(list(current_keys))})")
 
+        q_type = q.get('type', 'classic').lower()
+
         # --- NEW GUARDRAIL: Trap 10 (RACI Codes) ---
         for opt_key, opt_text in options.items():
-            # Matches pattern like A¹, R³, (A), (A/R)
             if re.search(r'\([ARCI]\)|\b[ARCI][¹²³⁴⁵]\b|\(A/R\)', str(opt_text)):
                 issues.append(f"Q{i+1}: Option {opt_key} contains prohibited RACI matrix codes (Trap 10).")
 
@@ -199,10 +200,20 @@ def audit_exam_data(repair=False):
                 if name in q_text_lower or any(name in str(opt).lower() for opt in options.values()):
                     issues.append(f"Q{i+1}: Hallucinated entity/role detected: '{name}' (Violates Continuity Mandate).")
 
+        # --- NEW GUARDRAIL: Trap 13 (Role/Title Conflation in Matching) ---
+        if q_type == 'matching':
+            for opt_key, opt_text in options.items():
+                if '(' in str(opt_text) and ')' in str(opt_text):
+                    issues.append(f"Q{i+1}: Option {opt_key} contains bracketed text. (Trap 13: Role/Title Conflation).")
+
+        # --- NEW GUARDRAIL: Signposting Ban (Rule 6) ---
+        signpost_pattern = re.compile(r'\b(however|therefore|clearly|obviously|because of this)\b', re.IGNORECASE)
+        for opt_key, opt_text in options.items():
+            if signpost_pattern.search(str(opt_text)):
+                issues.append(f"Q{i+1}: Option {opt_key} contains a banned transition word (Rule 6: Signposting Ban).")
+
         # --- NEW GUARDRAIL: Rigid Stem Structure (Rule 2.2) ---
-        q_type = q.get('type', 'classic').lower()
         if q_type == 'classic':
-            # Check if it's a Yes/No/Because question by looking at the options
             is_yes_no = any(str(opt).startswith("Yes,") or str(opt).startswith("No,") or 
                             str(opt).startswith("It applies it well,") or str(opt).startswith("It applies it poorly,") 
                             for opt in options.values())

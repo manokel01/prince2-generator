@@ -151,6 +151,12 @@ You will be provided with a specific project scenario inside the `<project_conte
 **Trap 10: Lazy RACI Formatting (AVOID THIS).** When testing RACI responsibilities, you must use plain role names ONLY (e.g., 'Project Manager', 'Project Executive'). You are STRICTLY FORBIDDEN from including raw RACI table codes, brackets, or superscripts (e.g., A¹, R³, C, I) in the question text or the options.
 **Trap 11: The Unsolvable RACI Matrix (AVOID THIS).** When generating combination matching questions for RACI tables, you MUST ensure that a definitively correct option actually exists among A, B, C, and D. If you ask for the 'Accountable' role for a process where a single role (e.g., the Project Executive) holds all accountability, the correct option MUST list that role for all items. Do not provide options that make the question mathematically impossible to answer correctly based on the official manual.
 **Trap 12: The Generic Entity Error (AVOID THIS).** Do not use generic industry names (e.g., 'The Contractor', 'The Tech Firm'). Use the specific entity name provided in the scenario (e.g., 'BuildyBrick').
+**Trap 13: Role/Title Conflation in Matching (AVOID THIS).** Never combine a PRINCE2 role name and a scenario job title in the same option (e.g., "Project Executive (Head of Regeneration)"). 
+- If the stem asks "Which *role* is responsible...", the options MUST use standard PRINCE2 role names ONLY (e.g., "Project Executive", "Senior User").
+- If the stem asks "Which *individual* is appropriate...", the options MUST use scenario-specific job titles ONLY (e.g., "Head of Regeneration", "Sustainability Manager").
+**Trap 14: The Compound Error (REQUIRED FOR 'NO' DISTRACTORS).** To prevent lazy or fabricated distractors, you must frequently use "Compound Errors" for your 'No' options. Rather than inventing a fake rule, take a factually correct PRINCE2 concept and misapply it.
+- *Wrong Phase/Process:* Describe a correct action but place it in the wrong project phase (e.g., updating the benefits management approach during 'starting up a project').
+- *Wrong RACI Accountability:* Correctly identify a management product or action but assign it to the wrong role (e.g., stating the Project Manager should authorise the stage instead of the Project Board).
 
 ### 5.2 Anti-Patterns — What NOT to Generate
 

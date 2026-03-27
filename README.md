@@ -25,6 +25,9 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
 -   **5. The 'Matching' Format Constraint:** Official exams use complex A–E matching questions (mapping 3 actions to 5 roles).
     -   *Solution:* A **Combination Multiple-Choice** approach is utilized. Matching items are listed in the question body, and the four options (A–D) provide different mapping combinations.
 
+-   **6. The "Helpful Tutor" Bias (RLHF):** LLMs naturally want to over-explain answers and use signposting transition words, destroying the clinical difficulty of the exam.
+    -   *Solution:* Strict linguistic constraints (Signposting Ban, Stem Spoon-Feeding Ban) force the LLM into a cold, objective examiner persona. "Compound Errors" (Trap 14) are used to test factually correct rules in the wrong phase or RACI context to ensure high cognitive load.
+
 ## Smart Features & Syllabus Alignment
 
 -   **Official Syllabus Weighting:** The Practitioner distribution is mathematically enforced: Principles (7), People (6), Practices (36), and Processes (21).
@@ -45,13 +48,13 @@ This project utilizes a **Two-Tier Validation Pipeline** to defeat LLM attention
 
 ### 1. The Generation Engine (`generator.py`)
 - **Micro-Batching:** Prevents context window bloat by generating questions in focused, isolated chunks of 2–4.
-- **Recency-Weighted Prompting:** Bypasses LLM "attention decay" by injecting critical constraints (Rule 2.4, Trap 9/11) and explicit GOOD/BAD contrast examples at the absolute bottom of the prompt.
-- **Programmatic Kill Switch:** intercepts and normalizes common LLM typographical hallucinations (e.g., forcing standard hyphens over em-dashes) to ensure 100% downstream audit alignment.
+- **Recency-Weighted Prompting:** Bypasses LLM "attention decay" by injecting critical linguistic constraints (Signposting Ban, Spoon-Feeding Ban) and explicit Trap logic at the absolute bottom of the prompt.
+- **Programmatic Option Grouping:** A built-in kill switch intercepts rationale questions, strictly sorting A/B (Positive) and C/D (Negative) options to match official PeopleCert formatting, safely remapping the JSON answer keys.
 
 ### 2. The Hardened Auditor (`auditor.py`)
-- **Deterministic Semantic Scanning:** Uses root-word regex arrays (e.g., `'decid'`, `'approv'`) to ruthlessly enforce Rule 2.4 (Definitive Management Actions), instantly failing any scenario that ends passively.
-- **Logic Contradiction Traps:** Automatically flags and kills any JSON output containing contradictory option logic (e.g., "Yes, because [they failed to do the right thing]").
-- **Absolute Sequence Integrity:** Refuses to compile the final Markdown exports unless the payload achieves 100% confidence (exactly 70 questions, perfectly sequenced and mapped).
+- **Role/Title Conflation Sweep:** Uses regex to hunt and destroy Trap 13 violations (e.g., combining standard PRINCE2 roles with scenario job titles in brackets).
+- **Linguistic Signposting Ban:** Automatically flags and kills any JSON output containing banned transition words (`however`, `therefore`, `clearly`) that subconsciously guide the candidate.
+- **Unblocked Exporting:** Compiles the clean Markdown output regardless of the audit state to streamline human-in-the-loop review without terminal JSON patching.
 
 ### 3. The Human-in-the-Loop Semantic Check
 - Python regex handles the structural math; **NotebookLM** acts as the final Lead Examiner. Small test batches are run through NotebookLM to verify distractor difficulty, logical cohesion, and granular PRINCE2 role continuity before triggering a full 70-question production run.
@@ -92,7 +95,7 @@ graph TD
     style Inputs fill:#f9f9f9,stroke:#333,stroke-width:2px
     style Pipeline fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     style Engine fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
-    style Validation fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Validation fill:#e8f5e9,stroke:#2e7d32,stroke-width:2pxx
 ```
 ## Interactive Exam Environment Features
 
