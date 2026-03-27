@@ -159,6 +159,7 @@ def generate_exam():
                 5. MATCHING OPTION FORMAT: NEVER combine PRINCE2 roles and scenario titles (e.g., "Project Exec (Head of Regen)"). If the question asks for a 'role', use standard PRINCE2 names ONLY. If asking for an 'individual', use scenario titles ONLY.
                 6. SIGNPOSTING BAN: You are strictly forbidden from using helpful transition words in the options such as 'However', 'Therefore', 'Clearly', 'Obviously', or 'Because of this'. Options must be stark, clinical, and neutral. Justification options must strictly adhere to the clinical format: '[Yes/No], because the [Role] should [Action].' Do not add explanatory or persuasive clauses.
                 7. STEM SPOON-FEEDING BAN: You are strictly forbidden from explaining a character's internal logic, reasoning, or justification for their actions within the scenario text. Present a bare, objective sequence of events. Force the candidate to deduce the logic themselves.
+                8. EMBEDDED EXAMPLE MANDATE: The <syllabus_data> contains specific examples, tables, and scenario callout boxes demonstrating how PRINCE2 is applied. You MUST actively mine these specific examples and use their exact logic, constraints, and data points as the foundation for your question stems and distractors.
                 
                 Target JSON Schema:
                 [{{
