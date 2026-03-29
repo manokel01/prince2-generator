@@ -22,8 +22,8 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
 -   **4. Mathematical Weighting & Chunking:** Feeding the entire 300-page manual to an LLM at once results in "lost-in-the-middle" hallucinations.
     -   *Solution:* **Mathematical Chunking** is utilized. The manual is sliced into 9 specific Markdown chunks under 115KB. The generator processes these individually, ensuring every question is grounded in a specific, high-resolution context window.
 
--   **5. The 'Matching' Format Constraint:** Official exams use complex A–E matching questions (mapping 3 actions to 5 roles).
-    -   *Solution:* A **Combination Multiple-Choice** approach is utilized. Matching items are listed in the question body, and the four options (A–D) provide different mapping combinations.
+-   **5. The 'Matching' Format Constraint:** Official exams use complex A-E matching questions (mapping 3 actions to 5 roles).
+    -   *Solution:* A **Combination Multiple-Choice** approach is utilized. Matching items are listed in the question body, and the four options (A-D) provide different mapping combinations.
 
 -   **6. The "Helpful Tutor" Bias (RLHF):** LLMs naturally want to over-explain answers and use signposting transition words, destroying the clinical difficulty of the exam.
     -   *Solution:* Strict linguistic constraints (Signposting Ban, Stem Spoon-Feeding Ban) force the LLM into a cold, objective examiner persona. "Compound Errors" (Trap 14) are used to test factually correct rules in the wrong phase or RACI context to ensure high cognitive load.
@@ -47,17 +47,32 @@ Creating a high-fidelity PRINCE2 7th Edition Practitioner exam is significantly 
 This project utilizes a **Two-Tier Validation Pipeline** to defeat LLM attention decay and enforce strict PRINCE2 Practitioner constraints.
 
 ### 1. The Generation Engine (`generator.py`)
-- **Micro-Batching:** Prevents context window bloat by generating questions in focused, isolated chunks of 2–4.
+- **The Constraint Hunter Model:** The generator is completely decoupled from specific scenarios. It uses a dynamic specification ruleset. To test a new scenario, the text is placed in `active_scenario.md` with explicit integration directives appended to the absolute bottom of the file. The LLM automatically scans for these local constraints (e.g., agile stage limits, automated issue registers) and weaponizes them as Practitioner-level traps.
+- **Micro-Batching:** Prevents context window bloat by generating questions in focused, isolated chunks of 2-4.
 - **Recency-Weighted Prompting:** Bypasses LLM "attention decay" by injecting critical linguistic constraints (Signposting Ban, Spoon-Feeding Ban) and explicit Trap logic at the absolute bottom of the prompt.
 - **Programmatic Option Grouping:** A built-in kill switch intercepts rationale questions, strictly sorting A/B (Positive) and C/D (Negative) options to match official PeopleCert formatting, safely remapping the JSON answer keys.
 
 ### 2. The Hardened Auditor (`auditor.py`)
 - **Role/Title Conflation Sweep:** Uses regex to hunt and destroy Trap 13 violations (e.g., combining standard PRINCE2 roles with scenario job titles in brackets).
-- **Linguistic Signposting Ban:** Automatically flags and kills any JSON output containing banned transition words (`however`, `therefore`, `clearly`) that subconsciously guide the candidate.
+- **Linguistic Signposting Ban:** Automatically flags and kills any JSON output containing banned transition words (`however`, `obviously`, `because of this`) that subconsciously guide the candidate.
 - **Unblocked Exporting:** Compiles the clean Markdown output regardless of the audit state to streamline human-in-the-loop review without terminal JSON patching.
 
 ### 3. The Human-in-the-Loop Semantic Check
 - Python regex handles the structural math; **NotebookLM** acts as the final Lead Examiner. Small test batches are run through NotebookLM to verify distractor difficulty, logical cohesion, and granular PRINCE2 role continuity before triggering a full 70-question production run.
+
+## Data Schema (v0.2)
+
+The pipeline outputs a nested `rationale` structure designed for granular UI feedback. The `app.py` TUI natively parses this nested dictionary while maintaining fallback support for legacy v0.1 flat strings.
+
+```json
+"rationale": {
+    "correct": "Explanation of the correct choice.",
+    "wrong": {
+        "A": "Specific reason distractor A is a trap.",
+        "B": "Specific reason distractor B is a trap."
+    },
+    "manual_reference": "Section X, p.Y"
+}
 
 ## Architecture & Workflow
 
