@@ -20,24 +20,16 @@ class ExamSelector(ModalScreen):
 
     def on_mount(self) -> None:
         exam_list = self.query_one("#exam-choice-list")
-        
-        # Find all JSON files in the exams directory
         exams = list(Path("exams").glob("*.json"))
-        # Also include the root work-in-progress file if it exists
-        if Path("exam_data.json").exists():
-            exams.append(Path("exam_data.json"))
-            
+        if Path("exam_data.json").exists(): exams.append(Path("exam_data.json"))
         if not exams:
             exam_list.append(ListItem(Label("No exams found. Please run generator.py"), name=""))
             return
-            
-        # Sort so newest exams are at the top
         for path in sorted(exams, reverse=True):
             exam_list.append(ListItem(Label(f"📄 {path.name}"), name=str(path)))
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
-        if event.item.name:
-            self.dismiss(event.item.name)
+        if event.item.name: self.dismiss(event.item.name)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self.dismiss(None)
@@ -61,25 +53,20 @@ class TimerModal(ModalScreen):
         self.query_one("#timer-input").focus()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-set":
-            self.submit()
-        else:
-            self.dismiss()
+        if event.button.id == "btn-set": self.submit()
+        else: self.dismiss()
 
     def on_input_submitted(self) -> None:
         self.submit()
 
     def submit(self) -> None:
         value = self.query_one("#timer-input").value
-        if value.isdigit():
-            self.dismiss(int(value))
-        else:
-            self.dismiss()
+        if value.isdigit(): self.dismiss(int(value))
+        else: self.dismiss()
 
 
 class ScenarioModal(ModalScreen):
     """Full-screen reading view for the scenario overlay."""
-    
     BINDINGS = [
         Binding("s", "dismiss", "Close Scenario"),
         Binding("escape", "dismiss", "Close"),
@@ -101,23 +88,15 @@ class ScenarioModal(ModalScreen):
             id="scenario-modal-container"
         )
 
-    def action_dismiss(self) -> None:
-        self.dismiss()
-        
-    def action_scroll_down(self) -> None:
-        self.query_one("#scenario-scroll").scroll_relative(y=3, animate=False)
-
-    def action_scroll_up(self) -> None:
-        self.query_one("#scenario-scroll").scroll_relative(y=-3, animate=False)
+    def action_dismiss(self) -> None: self.dismiss()
+    def action_scroll_down(self) -> None: self.query_one("#scenario-scroll").scroll_relative(y=3, animate=False)
+    def action_scroll_up(self) -> None: self.query_one("#scenario-scroll").scroll_relative(y=-3, animate=False)
 
 
 class RationaleModal(ModalScreen):
-    """Zero-border rationale feedback."""
-    
+    """Zero-border rationale feedback with navigation."""
     BINDINGS = [
-        Binding("enter", "dismiss", "Continue"),
-        Binding("escape", "dismiss", "Continue"),
-        Binding("space", "dismiss", "Continue"),
+        Binding("escape", "dismiss_back", "Back"),
         Binding("j", "scroll_down", "Scroll Down", show=False),
         Binding("k", "scroll_up", "Scroll Up", show=False),
         Binding("down", "scroll_down", "Scroll Down", show=False),
@@ -131,378 +110,95 @@ class RationaleModal(ModalScreen):
         self.correct_ans = correct_ans
 
     def compose(self) -> ComposeResult:
-        if self.is_correct:
-            header_text = "[#3fb950]CORRECT[/#3fb950]"
-        else:
-            header_text = f"[#f85149]INCORRECT[/#f85149] - The correct answer is {self.correct_ans}"
+        header_text = "[#3fb950]CORRECT[/#3fb950]" if self.is_correct else f"[#f85149]INCORRECT[/#f85149] - Answer is {self.correct_ans}"
         
-        # Keep this for backward compatibility with V0.1 flat strings
-        cleaned_rationale = self.rationale.replace("**Why this is correct:**", f"**Why Option {self.correct_ans} is correct:**")
-        cleaned_rationale = cleaned_rationale.replace("Why this is correct:", f"**Why Option {self.correct_ans} is correct:**")
+        cleaned_rationale = self.rationale.replace("Why this is correct:", f"**Why Option {self.correct_ans} is correct:**")
 
         yield Vertical(
             Label(header_text, id="status-label"),
-            ScrollableContainer(
-                Markdown(cleaned_rationale, id="rationale-text"),
-                id="rationale-scroll"
+            ScrollableContainer(Markdown(cleaned_rationale, id="rationale-text"), id="rationale-scroll"),
+            Horizontal(
+                Button("Back", id="btn-modal-back"),
+                Button("Next", id="btn-modal-next"),
+                id="modal-nav-buttons"
             ),
-            Button("OK", id="btn-ok"),
             id="modal-container"
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-ok":
-            event.stop() 
-            self.dismiss()
+        self.dismiss(event.button.id)
 
-    def action_dismiss(self) -> None:
-        self.dismiss()
-
-    def action_scroll_down(self) -> None:
-        self.query_one("#rationale-scroll").scroll_relative(y=3, animate=False)
-
-    def action_scroll_up(self) -> None:
-        self.query_one("#rationale-scroll").scroll_relative(y=-3, animate=False)
+    def action_dismiss_back(self) -> None: self.dismiss("btn-modal-back")
+    def action_scroll_down(self) -> None: self.query_one("#rationale-scroll").scroll_relative(y=3, animate=False)
+    def action_scroll_up(self) -> None: self.query_one("#rationale-scroll").scroll_relative(y=-3, animate=False)
 
 
 class ExamApp(App):
     theme = "textual-dark"
-    
     CSS = """
-    /* --- DARK THEME (DEFAULT) --- */
-    Screen {
-        background: #0d1117; 
-        scrollbar-color: #30363d;
-        scrollbar-background: transparent;
-    }
-    ScenarioModal, RationaleModal, TimerModal, ExamSelector {
-        align: center middle;
-    }
-    #main-layout {
-        height: 100%;
-    }
-    #sidebar {
-        width: 35;
-        background: #0d1117;
-        border-right: solid #30363d;
-        padding: 1;
-        height: 100%;
-        overflow: hidden;
-    }
-    #content-area {
-        padding: 2;
-        height: 100%;
-    }
-    #question-scroll {
-        height: 1fr;
-        padding-right: 1;
-        scrollbar-color: #30363d;
-        scrollbar-background: transparent;
-    }
-    #question-display {
-        margin-bottom: 1; 
-        color: #c9d1d9;
-    }
-    ListView {
-        background: transparent;
-        border: none;
-    }
+    Screen { background: #0d1117; scrollbar-color: #30363d; scrollbar-background: transparent; }
+    ScenarioModal, RationaleModal, TimerModal, ExamSelector { align: center middle; }
+    #main-layout { height: 100%; }
+    #sidebar { width: 35; background: #0d1117; border-right: solid #30363d; padding: 1; height: 100%; overflow: hidden; }
+    #content-area { padding: 2; height: 100%; }
+    #question-scroll { height: 1fr; padding-right: 1; }
+    #question-display { margin-bottom: 1; color: #c9d1d9; }
+    ListView { background: transparent; border: none; }
     
-    /* OPTIONS LIST */
-    #options-list {
-        height: auto;
-        margin-top: 1;
-        margin-bottom: 1;
-    }
-    #options-list ListItem {
-        height: auto;
-        padding: 0 1;
-        margin-bottom: 1;
-        background: transparent;
-        border: round #30363d;
-    }
-    #options-list Label {
-        height: auto;
-        width: 100%;
-        color: #c9d1d9;
-    }
-    #options-list ListItem:hover {
-        background: #161b22;
-    }
+    #options-list { height: auto; margin-top: 1; margin-bottom: 1; }
+    #options-list ListItem { height: auto; padding: 0 1; margin-bottom: 1; background: transparent; border: round #30363d; }
+    #options-list Label { height: auto; width: 100%; color: #c9d1d9; }
+    #options-list ListItem:hover { background: #161b22; }
+    ListView#options-list ListItem.active-opt, ListView#options-list ListItem.--highlight { background: transparent; border: round #58a6ff; }
+    ListView#options-list ListItem.active-opt Label, ListView#options-list ListItem.--highlight Label { color: #58a6ff !important; text-style: bold; }
     
-    ListView#options-list ListItem.active-opt,
-    ListView#options-list ListItem.--highlight {
-        background: transparent;
-        border: round #58a6ff;
-    }
+    #q-list { margin-top: 1; height: 1fr; border-top: solid #30363d; padding-top: 1; overflow-x: hidden; }
+    #q-list ListItem { padding: 1; background: transparent; height: auto; width: 100%; }
+    #q-list Horizontal { height: 1; width: 100%; }
+    #q-list ListItem:hover { background: #161b22; }
+    #q-list ListItem.active-q { background: #21262d; border-left: thick #58a6ff; }
+    #q-list ListItem.active-q .q-label { color: #c9d1d9; text-style: bold; }
     
-    ListView#options-list ListItem.active-opt Label,
-    ListView#options-list ListItem.--highlight Label {
-        color: #58a6ff !important;
-        text-style: bold;
-    }
+    .bookmark-icon { width: 3; color: #8b949e; text-style: bold; text-align: center; }
+    .q-label { width: 1fr; height: 1; color: #8b949e; overflow: hidden; }
+    .answered-item .q-label { color: #484f58; text-style: strike; }
+    .answered-item .bookmark-icon { color: #484f58; }
+    .bookmark-icon.bookmarked { color: #f85149 !important; }
     
-    /* SIDEBAR LIST */
-    #q-list {
-        margin-top: 1;
-        height: 1fr;
-        border-top: solid #30363d;
-        padding-top: 1;
-        overflow-x: hidden;
-    }
-    #q-list ListItem {
-        padding: 1;
-        background: transparent;
-        height: auto;
-        width: 100%;
-        overflow: hidden;
-    }
-    #q-list Horizontal {
-        height: 1;
-        width: 100%;
-        overflow: hidden;
-    }
-    #q-list ListItem:hover {
-        background: #161b22;
-    }
-    #q-list ListItem.active-q {
-        background: #21262d;
-        border-left: thick #58a6ff;
-    }
-    #q-list ListItem.active-q .q-label {
-        color: #c9d1d9;
-        text-style: bold;
-    }
+    #modal-container { width: 70%; height: auto; background: #161b22; border: round #30363d; padding: 2; }
+    #timer-modal-container, #selector-container { width: 70%; height: auto; background: #161b22; border: round #30363d; padding: 2; align-horizontal: center; }
+    #selector-container { width: 50%; max-height: 80%; }
+    #rationale-scroll { max-height: 50vh; margin-bottom: 1; }
+    #scenario-modal-container { width: 80%; height: 80%; background: #161b22; border: round #30363d; padding: 2; }
+    #scenario-scroll { height: 1fr; }
+    #scenario-title, #timer-modal-title, #selector-title { text-align: center; width: 100%; text-style: bold; margin-bottom: 1; color: #c9d1d9; }
     
-    .bookmark-icon {
-        width: 3;
-        color: #8b949e;
-        text-style: bold;
-        text-align: center;
-        height: 1;
-    }
-    .q-label {
-        width: 1fr;
-        height: 1;
-        color: #8b949e;
-        overflow: hidden;
-    }
+    #exam-choice-list { height: 1fr; margin-bottom: 1; }
+    #exam-choice-list ListItem { padding: 1; background: transparent; border: round #30363d; margin-bottom: 1; }
+    #timer-bar { height: auto; align-horizontal: left; margin-top: 1; }
+    #timer-label { text-align: center; text-style: bold; color: #c9d1d9; padding: 0 1; border: round #30363d; }
+    #pause-btn, #theme-btn { width: 5; text-align: center; background: transparent; color: #8b949e; margin-left: 1; border: round #30363d; }
+    #score-label { margin-bottom: 1; }
     
-    /* Answered and Bookmark overrides */
-    .answered-item .q-label, .answered-item .bookmark-icon {
-        color: #484f58;
+    #action-buttons, #modal-nav-buttons { height: auto; align-horizontal: right; margin-top: 1; }
+    #modal-nav-buttons { align-horizontal: center; }
+    #btn-next, #btn-answer, #btn-modal-back, #btn-modal-next, #btn-set, #btn-cancel {
+        width: 20; height: 3; margin: 0 1; background: transparent; color: #c9d1d9; border: round #30363d; text-style: bold;
     }
-    .bookmark-icon.bookmarked {
-        color: #f85149 !important;
-    }
-    
-    /* MODALS */
-    #modal-container {
-        width: 70%;
-        height: auto;
-        background: #161b22;
-        border: round #30363d;
-        padding: 2;
-    }
-    #timer-modal-container, #selector-container {
-        width: 70%;
-        height: auto;
-        background: #161b22;
-        border: round #30363d;
-        padding: 2;
-        align-horizontal: center;
-    }
-    #selector-container {
-        width: 50%;
-        max-height: 80%;
-    }
-    #rationale-scroll {
-        max-height: 50vh;
-        margin-bottom: 1;
-        scrollbar-color: #30363d;
-        scrollbar-background: transparent;
-    }
-    #scenario-modal-container {
-        width: 80%;
-        height: 80%;
-        background: #161b22;
-        border: round #30363d;
-        padding: 2;
-    }
-    #scenario-scroll {
-        height: 1fr;
-        scrollbar-color: #30363d;
-        scrollbar-background: transparent;
-    }
-    #scenario-title, #timer-modal-title, #selector-title {
-        text-align: center;
-        width: 100%;
-        text-style: bold;
-        margin-bottom: 1;
-        color: #c9d1d9;
-    }
-    
-    /* EXAM SELECTOR LIST */
-    #exam-choice-list {
-        height: 1fr;
-        margin-bottom: 1;
-        scrollbar-color: #30363d;
-        scrollbar-background: transparent;
-    }
-    #exam-choice-list ListItem {
-        padding: 1;
-        background: transparent;
-        border: round #30363d;
-        margin-bottom: 1;
-    }
-    #exam-choice-list ListItem:hover {
-        background: #21262d;
-    }
-    
-    /* TIMER & BUTTON BAR */
-    #timer-bar {
-        height: auto;
-        align-horizontal: left;
-        margin-top: 1;
-    }
-    #timer-label {
-        text-align: center;
-        text-style: bold;
-        background: transparent;
-        color: #c9d1d9;
-        padding: 0 1;
-        border: round #30363d;
-    }
-    #timer-label:hover {
-        background: #161b22;
-    }
-    #pause-btn, #theme-btn {
-        width: 5;
-        content-align: center middle;
-        text-align: center;
-        background: transparent;
-        color: #8b949e; 
-        padding: 0 1;
-        margin-left: 1;
-        border: round #30363d;
-    }
-    #pause-btn:hover, #theme-btn:hover {
-        background: #161b22;
-    }
-    #pause-btn.paused {
-        color: #c9d1d9; 
-        background: transparent;
-    }
+    #btn-next:hover, #btn-answer:hover, #btn-modal-back:hover, #btn-modal-next:hover { background: #161b22; }
 
-    #score-label {
-        margin-bottom: 1;
-    }
-
-    #timer-input {
-        margin: 1 0;
-        border: round #30363d;
-    }
-    
-    /* BUTTONS */
-    #submit-btn, #btn-ok, #btn-set, #btn-cancel {
-        width: 30;
-        height: 3;
-        margin: 0 0; 
-        content-align: center middle;
-        background: transparent; 
-        color: #c9d1d9;
-        border: round #30363d;
-        text-style: bold;
-    }
-    #submit-btn:hover, #btn-ok:hover, #btn-set:hover, #btn-cancel:hover {
-        background: #161b22;
-    }
-    #timer-modal-buttons {
-        height: auto;
-        align-horizontal: center;
-    }
-    #btn-set { margin-right: 1; }
-
-    /* --- LIGHT THEME OVERRIDES --- */
-    Screen.light-mode { 
-        background: #ffffff; 
-        scrollbar-color: #24292f;      
-        scrollbar-background: #eaeef2; 
-    }
+    /* LIGHT THEME OVERRIDES */
+    Screen.light-mode { background: #ffffff; }
     Screen.light-mode #sidebar { background: #f6f8fa; border-right: solid #d0d7de; }
-    
-    Screen.light-mode #title,
-    Screen.light-mode #progress,
-    Screen.light-mode #score-label,
-    Screen.light-mode #tab-hint {
-        color: #24292f;
-    }
-    
-    Screen.light-mode Markdown, 
-    Screen.light-mode Label,
-    Screen.light-mode #question-display { 
-        color: #24292f; 
-    }
-    
+    Screen.light-mode #title, Screen.light-mode #progress, Screen.light-mode #score-label, Screen.light-mode #tab-hint { color: #24292f; }
+    Screen.light-mode Markdown, Screen.light-mode Label, Screen.light-mode #question-display { color: #24292f; }
     Screen.light-mode #options-list ListItem { border: round #d0d7de; }
-    Screen.light-mode #options-list Label { color: #24292f; }
-    Screen.light-mode #options-list ListItem:hover { background: #eaeef2; }
-    
-    Screen.light-mode ListView#options-list ListItem.--highlight { border: round #0969da; }
     Screen.light-mode ListView#options-list ListItem.active-opt { border: round #0969da; }
-    Screen.light-mode ListView#options-list ListItem.active-opt Label,
-    Screen.light-mode ListView#options-list ListItem.--highlight Label { color: #0969da !important; }
-    
-    Screen.light-mode #q-list, Screen.light-mode #question-scroll, 
-    Screen.light-mode #rationale-scroll, Screen.light-mode #scenario-scroll { 
-        border-top: solid #d0d7de; 
-        scrollbar-color: #24292f; 
-        scrollbar-background: #eaeef2;
-    }
-    Screen.light-mode #q-list ListItem:hover { background: #eaeef2; }
+    Screen.light-mode #q-list { border-top: solid #d0d7de; }
     Screen.light-mode #q-list ListItem.active-q { background: #ddf4ff; border-left: thick #0969da; }
-    Screen.light-mode #q-list ListItem.active-q .q-label { color: #24292f; }
-    
-    Screen.light-mode .bookmark-icon { color: #57606a; }
-    Screen.light-mode .q-label { color: #57606a; }
-    Screen.light-mode .answered-item .q-label, Screen.light-mode .answered-item .bookmark-icon { color: #afb8c1; }
-    Screen.light-mode .bookmark-icon.bookmarked { color: #cf222e !important; }
-    
-    Screen.light-mode #modal-container, 
-    Screen.light-mode #scenario-modal-container,
-    Screen.light-mode #timer-modal-container,
-    Screen.light-mode #selector-container { 
-        background: #ffffff; 
-        border: round #d0d7de; 
-    }
-    Screen.light-mode #scenario-title, Screen.light-mode #timer-modal-title, Screen.light-mode #selector-title { color: #24292f; }
-    
-    Screen.light-mode #exam-choice-list ListItem { border: round #d0d7de; }
-    Screen.light-mode #exam-choice-list ListItem:hover { background: #eaeef2; }
-    
-    Screen.light-mode #timer-label { color: #24292f; border: round #d0d7de; }
-    Screen.light-mode #timer-label:hover { background: #eaeef2; }
-    
-    Screen.light-mode #timer-input { 
-        background: #ffffff; 
-        color: #24292f; 
-        border: round #d0d7de; 
-    }
-    Screen.light-mode #timer-input:focus { border: round #0969da; }
-    
-    Screen.light-mode #pause-btn, Screen.light-mode #theme-btn { color: #57606a; border: round #d0d7de; }
-    Screen.light-mode #pause-btn:hover, Screen.light-mode #theme-btn:hover { background: #eaeef2; }
-    Screen.light-mode #pause-btn.paused { color: #24292f; background: transparent; }
-    
-    Screen.light-mode #submit-btn, Screen.light-mode #btn-ok, Screen.light-mode #btn-set, Screen.light-mode #btn-cancel { 
-        background: transparent; 
-        color: #24292f; 
-        border: round #d0d7de;
-    }
-    Screen.light-mode #submit-btn:hover, Screen.light-mode #btn-ok:hover, 
-    Screen.light-mode #btn-set:hover, Screen.light-mode #btn-cancel:hover { 
-        background: #eaeef2; 
-    }
+    Screen.light-mode .answered-item .q-label { color: #afb8c1; text-style: strike; }
+    Screen.light-mode #modal-container, Screen.light-mode #scenario-modal-container { background: #ffffff; border: round #d0d7de; }
+    Screen.light-mode #timer-label, Screen.light-mode #btn-next, Screen.light-mode #btn-answer, Screen.light-mode #btn-modal-back, Screen.light-mode #btn-modal-next { color: #24292f; border: round #d0d7de; }
     """
 
     BINDINGS = [
@@ -517,62 +213,29 @@ class ExamApp(App):
 
     def __init__(self):
         super().__init__()
-        self.exam_data = []
-        self.current_idx = 0
-        self.score = 0
-        self.scenario_text = ""
-        self.answered = set()
-        self.bookmarks = set()
-        self.time_left = 190 * 60
-        self.timer_paused = True # Start paused
+        self.exam_data, self.current_idx, self.score, self.scenario_text = [], 0, 0, ""
+        self.user_answers, self.drafted, self.answered, self.bookmarks = {}, set(), set(), set()
+        self.time_left, self.timer_paused = 190 * 60, True
 
     def on_mount(self):
-        # Scan for existing exams
         exams = list(Path("exams").glob("*.json"))
-        if Path("exam_data.json").exists(): 
-            exams.append(Path("exam_data.json"))
-
-        # Decide whether to show selector or load directly
+        if Path("exam_data.json").exists(): exams.append(Path("exam_data.json"))
         if len(exams) > 1:
             modal = ExamSelector()
-            if self.screen.has_class("light-mode"):
-                modal.add_class("light-mode")
+            if self.screen.has_class("light-mode"): modal.add_class("light-mode")
             self.push_screen(modal, self.load_selected_exam)
-        elif len(exams) == 1:
-            self.load_selected_exam(str(exams[0]))
-        else:
-            self.notify("No exams found. Please run generator.py first.", severity="error")
+        elif len(exams) == 1: self.load_selected_exam(str(exams[0]))
 
     def load_selected_exam(self, file_path):
-        if not file_path:
-            # User canceled selection, or no file passed
-            return
-            
+        if not file_path: return
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                # Ensure we only load 70 questions for Practitioner parity
-                self.exam_data = json.load(f)[:70]
-            
-            # AGNOSTIC FIX: Point to the active scenario file
-            scenario_path = Path("data/target_scenario/active_scenario.md")
-            if scenario_path.exists():
-                self.scenario_text = scenario_path.read_text(encoding="utf-8").strip()
-            else:
-                self.scenario_text = "⚠️ active_scenario.md not found in data/target_scenario/"
-            
-            if self.exam_data:
-                self.populate_sidebar()
-                self.update_question()
-                self.query_one("#options-list").focus() 
-                self.notify(f"Loaded: {Path(file_path).name}")
-            else:
-                self.notify("Error: Selected exam file is empty.", severity="error")
-                
+            with open(file_path, "r", encoding="utf-8") as f: self.exam_data = json.load(f)[:70]
+            sp = Path("data/target_scenario/active_scenario.md")
+            self.scenario_text = sp.read_text(encoding="utf-8").strip() if sp.exists() else "No scenario found."
+            if self.exam_data: self.populate_sidebar(); self.update_question()
             self.timer_interval = self.set_interval(1, self.tick_timer)
             self.update_timer_display()
-            
-        except Exception as e:
-            self.notify(f"Error loading exam: {e}", severity="error")
+        except Exception as e: self.notify(f"Error: {e}", severity="error")
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -581,251 +244,157 @@ class ExamApp(App):
                 yield Label("PRINCE Practitioner mock exam", id="title")
                 with Horizontal(id="timer-bar"):
                     yield Label("Time: 190:00", id="timer-label")
-                    yield Label("▶", id="pause-btn") 
-                    yield Label("◑", id="theme-btn")
-                yield Label("Progress: 0/70", id="progress")
-                yield Label("Score: 0/70", id="score-label")
-                yield Label("Tab: Switch Panel\np: Pause Timer", id="tab-hint")
-                yield ListView(id="q-list")
+                    yield Label("▶", id="pause-btn"); yield Label("◑", id="theme-btn")
+                yield Label("Progress: 0/70", id="progress"); yield Label("Score: 0/70", id="score-label")
+                yield Label("Tab: Focus | p: Pause", id="tab-hint"); yield ListView(id="q-list")
             with Vertical(id="content-area"):
                 with ScrollableContainer(id="question-scroll"):
-                    yield Markdown("Loading...", id="question-display")
-                    yield ListView(id="options-list")
-                    yield Button("Next", id="submit-btn")
+                    yield Markdown("Loading...", id="question-display"); yield ListView(id="options-list")
+                    with Horizontal(id="action-buttons"):
+                        yield Button("Next", id="btn-next"); yield Button("Answer", id="btn-answer")
         yield Footer()
 
     def tick_timer(self):
-        if not self.timer_paused and self.time_left > 0:
-            self.time_left -= 1
-            self.update_timer_display()
+        if not self.timer_paused and self.time_left > 0: self.time_left -= 1; self.update_timer_display()
 
     def update_timer_display(self):
         mins, secs = divmod(self.time_left, 60)
+        try: self.query_one("#timer-label").update(f"Time: {mins:02d}:{secs:02d}")
+        except: pass
+            
+    def update_progress_display(self):
+        td = len(self.drafted.union(self.answered))
+        try: self.query_one("#progress").update(f"Progress: {td}/{len(self.exam_data)}")
+        except: pass
+            
+    def mark_current_as_done(self):
         try:
-            self.query_one("#timer-label").update(f"Time: {mins:02d}:{secs:02d}")
-        except:
-            pass
+            ti = self.query_one("#q-list").children[self.current_idx]
+            ti.query_one(".q-label", Label).update(f"Question {self.current_idx + 1} [✓]"); ti.add_class("answered-item")
+        except: pass
 
     def action_toggle_pause(self):
         self.timer_paused = not self.timer_paused
         try:
-            pause_btn = self.query_one("#pause-btn")
-            if self.timer_paused:
-                pause_btn.update("▶")
-                pause_btn.add_class("paused")
-            else:
-                pause_btn.update("⏸")
-                pause_btn.remove_class("paused")
-        except Exception:
-            pass
-        self.update_timer_display()
+            pb = self.query_one("#pause-btn")
+            pb.update("▶" if self.timer_paused else "⏸"); pb.set_class(self.timer_paused, "paused")
+        except: pass
 
     def action_configure_timer(self) -> None:
         modal = TimerModal()
-        if self.screen.has_class("light-mode"):
-            modal.add_class("light-mode")
-        
-        def set_time(minutes):
-            if minutes is not None:
-                self.time_left = minutes * 60
-                self.update_timer_display()
-        
-        self.push_screen(modal, set_time)
+        if self.screen.has_class("light-mode"): modal.add_class("light-mode")
+        def st(m):
+            if m is not None: self.time_left = m * 60; self.update_timer_display()
+        self.push_screen(modal, st)
 
     def on_click(self, event: Click) -> None:
-        if event.control and event.control.id == "pause-btn":
-            self.action_toggle_pause()
-            event.stop()
-        elif event.control and event.control.id == "timer-label":
-            self.action_configure_timer()
-            event.stop()
-        elif event.control and event.control.id == "theme-btn":
-            self.screen.toggle_class("light-mode")
-            event.stop()
+        if event.control and event.control.id == "pause-btn": self.action_toggle_pause(); event.stop()
+        elif event.control and event.control.id == "theme-btn": self.screen.toggle_class("light-mode"); event.stop()
         elif event.control and event.control.has_class("bookmark-icon"):
-            try:
-                q_idx = int(event.control.id.split("-")[1])
-                if q_idx in self.bookmarks:
-                    self.bookmarks.remove(q_idx)
-                    event.control.update("○")
-                    event.control.remove_class("bookmarked")
-                else:
-                    self.bookmarks.add(q_idx)
-                    event.control.update("●")
-                    event.control.add_class("bookmarked")
-                event.stop()
-            except Exception:
-                pass
+            qi = int(event.control.id.split("-")[1])
+            if qi in self.bookmarks: self.bookmarks.remove(qi); event.control.update("○"); event.control.remove_class("bookmarked")
+            else: self.bookmarks.add(qi); event.control.update("●"); event.control.add_class("bookmarked")
+            event.stop()
 
     def populate_sidebar(self):
-        q_list = self.query_one("#q-list")
-        q_list.clear()
+        ql = self.query_one("#q-list"); ql.clear()
         for i in range(len(self.exam_data)):
-            mark = " [✓]" if i in self.answered else ""
-            b_icon = "●" if i in self.bookmarks else "○"
-            
-            bm_label = Label(b_icon, id=f"bm-{i}", classes="bookmark-icon")
-            if i in self.bookmarks:
-                bm_label.add_class("bookmarked")
-                
-            q_label = Label(f"Question {i+1}{mark}", classes="q-label")
-            layout = Horizontal(bm_label, q_label)
-            
-            item = ListItem(layout, name=str(i))
-            if i == self.current_idx:
-                item.add_class("active-q")
-            if i in self.answered:
-                item.add_class("answered-item")
-            q_list.append(item)
+            done = i in self.answered or i in self.drafted
+            bm = Label("●" if i in self.bookmarks else "○", id=f"bm-{i}", classes="bookmark-icon")
+            if i in self.bookmarks: bm.add_class("bookmarked")
+            item = ListItem(Horizontal(bm, Label(f"Question {i+1}{' [✓]' if done else ''}", classes="q-label")), name=str(i))
+            if i == self.current_idx: item.add_class("active-q")
+            if done: item.add_class("answered-item")
+            ql.append(item)
 
-    def format_question_text(self, text: str) -> str:
-        """Systematically cleans visual noise, removes orphan markers, and fixes paragraph spacing."""
-        # 1. Remove markdown bold markers (**)
-        text = text.replace("**", "")
-        # 2. Remove orphan placeholders
-        text = re.sub(r"(Statement|Item|Action) \d+:\s*[._\-\s]+(?=\n|$)", "", text)
-        # 3. Fix paragraph spacing for actual content
-        text = re.sub(r"(?<!^)\s*((Statement|Item|Action) \d+:)", r"\n\n\1", text)
-        # 4. Clean up whitespace
-        text = re.sub(r"\n{3,}", "\n\n", text)
-        return text.strip()
+    def format_question_text(self, t: str) -> str:
+        t = t.replace("**", "")
+        t = re.sub(r"(Statement|Item|Action) \d+:\s*[._\-\s]+(?=\n|$)", "", t)
+        return re.sub(r"(?<!^)\s*((Statement|Item|Action) \d+:)", r"\n\n\1", t).strip()
 
     def update_question(self):
         if not self.exam_data: return
-        
         if self.current_idx >= len(self.exam_data):
-            self.query_one("#question-display").update(f"EXAM COMPLETE\nFinal Score: {self.score}/{len(self.exam_data)}")
-            self.query_one("#options-list").clear()
-            self.query_one("#submit-btn").display = False
-            self.timer_paused = True
+            self.query_one("#question-display").update(f"COMPLETE\nScore: {self.score}/{len(self.exam_data)}")
+            self.query_one("#options-list").clear(); self.query_one("#action-buttons").display = False
+            if not self.timer_paused: self.action_toggle_pause()
             return
-
-        self.query_one("#submit-btn").display = True
+        self.query_one("#action-buttons").display = True
         q = self.exam_data[self.current_idx]
-        formatted_q = self.format_question_text(q['question'])
-        self.query_one("#question-display").update(f"**Q{self.current_idx + 1}:** {formatted_q}")
-        
-        list_view = self.query_one("#options-list")
-        list_view.clear()
-        options = q.get('options', {})
-        for key in sorted(options.keys()):
-            list_view.append(ListItem(Label(f"{key}) {options[key]}"), name=key))
-        
-        self.query_one("#progress").update(f"Progress: {len(self.answered)}/{len(self.exam_data)}")
-        
-        q_list = self.query_one("#q-list")
-        q_list.index = self.current_idx
-        for i, item in enumerate(q_list.children):
-            if i == self.current_idx:
-                item.add_class("active-q")
-            else:
-                item.remove_class("active-q")
+        self.query_one("#question-display").update(f"**Q{self.current_idx + 1}:** {self.format_question_text(q['question'])}")
+        lv, opts = self.query_one("#options-list"), q.get('options', {})
+        lv.clear(); sc = self.user_answers.get(self.current_idx); si = None
+        for i, k in enumerate(sorted(opts.keys())):
+            item = ListItem(Label(f"{k}) {opts[k]}"), name=k)
+            if k == sc: item.add_class("active-opt"); si = i
+            lv.append(item)
+        if si is not None: lv.index = si
+        self.update_progress_display(); ql = self.query_one("#q-list"); ql.index = self.current_idx
+        for i, item in enumerate(ql.children): item.set_class(i == self.current_idx, "active-q")
 
     def on_list_view_selected(self, event: ListView.Selected):
         if event.list_view.id == "q-list":
-            self.current_idx = int(event.item.name)
-            self.update_question()
-            self.query_one("#options-list").focus()
+            if self.user_answers.get(self.current_idx) and self.current_idx not in self.answered:
+                self.drafted.add(self.current_idx); self.mark_current_as_done(); self.update_progress_display()
+            self.current_idx = int(event.item.name); self.update_question(); self.query_one("#options-list").focus()
         elif event.list_view.id == "options-list":
-            for item in event.list_view.children:
-                item.remove_class("active-opt")
-            if event.item:
-                event.item.add_class("active-opt")
+            if self.current_idx in self.answered:
+                for item in event.list_view.children:
+                    item.set_class(item.name == self.user_answers.get(self.current_idx), "active-opt")
+                return
+            for item in event.list_view.children: item.remove_class("active-opt")
+            if event.item: event.item.add_class("active-opt"); self.user_answers[self.current_idx] = event.item.name
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "submit-btn":
-            self.submit_answer()
-        elif event.button.id == "btn-ok":
-            self.dismiss()
+        if event.button.id == "btn-next":
+            if self.user_answers.get(self.current_idx) and self.current_idx not in self.answered:
+                self.drafted.add(self.current_idx); self.mark_current_as_done(); self.update_progress_display()
+            self.current_idx += 1; self.update_question(); self.query_one("#options-list").focus()
+        elif event.button.id == "btn-answer": self.submit_answer()
 
     def submit_answer(self):
-        if self.current_idx in self.answered:
-            self.current_idx += 1
-            self.update_question()
-            return
-
-        opt_list = self.query_one("#options-list")
-        choice = None
-
-        for item in opt_list.children:
-            if item.has_class("active-opt"):
-                choice = item.name
-                break
-
-        if not choice and opt_list.highlighted_child is not None:
-            choice = opt_list.highlighted_child.name
-
-        if not choice:
-            self.notify("Please select an answer first.", severity="warning")
-            return
-
-        q = self.exam_data[self.current_idx]
-        correct_ans = q.get('answer', '')
-        is_correct = choice == correct_ans
-
-        if is_correct: self.score += 1
-
-        self.answered.add(self.current_idx)
-        self.query_one("#score-label").update(f"Score: {self.score}/{len(self.exam_data)}")
-        self.query_one("#progress").update(f"Progress: {len(self.answered)}/{len(self.exam_data)}")
-
-        try:
-            target_item = self.query_one("#q-list").children[self.current_idx]
-            target_item.query_one(".q-label", Label).update(f"Question {self.current_idx + 1} [✓]")
-            target_item.add_class("answered-item")
-        except: pass
-
-        def after_modal(_=None):
-            self.current_idx += 1
-            self.update_question()
-            self.query_one("#options-list").focus()
-
-        # Build rationale dynamically based on JSON structure
-        raw_rationale = q.get('rationale', '')
-        if isinstance(raw_rationale, dict):
-            # v0.2 Nested JSON formatting
-            correct_text = raw_rationale.get('correct', '')
-            wrong_dict = raw_rationale.get('wrong', {})
-            manual_ref = raw_rationale.get('manual_reference', '')
-
-            formatted_rationale = f"**Why Option {correct_ans} is correct:**\n{correct_text}\n\n**Why the other options are wrong:**\n"
-            for opt_key in sorted(wrong_dict.keys()):
-                if opt_key != correct_ans and wrong_dict[opt_key].strip():
-                    formatted_rationale += f"- **Option {opt_key}:** {wrong_dict[opt_key]}\n"
-
-            if manual_ref:
-                formatted_rationale += f"\n**Manual reference:** {manual_ref}"
-        else:
-            # v1 Backward Compatibility (flat string)
-            formatted_rationale = str(raw_rationale)
-
-        modal = RationaleModal(formatted_rationale, is_correct, correct_ans)
-        if self.screen.has_class("light-mode"):
-            modal.add_class("light-mode")
-
-        self.push_screen(modal, callback=after_modal)
-
+        choice = self.user_answers.get(self.current_idx)
+        if not choice: self.notify("Select answer.", severity="warning"); return
+        q = self.exam_data[self.current_idx]; ca = q.get('answer', ''); ic = choice == ca
+        if self.current_idx not in self.answered:
+            if ic: self.score += 1
+            self.answered.add(self.current_idx); self.query_one("#score-label").update(f"Score: {self.score}/{len(self.exam_data)}")
+            self.mark_current_as_done(); self.update_progress_display()
+        tr = not self.timer_paused
+        if tr: self.action_toggle_pause()
+        def am(res):
+            if tr: self.action_toggle_pause()
+            if res == "btn-modal-next": self.current_idx += 1
+            self.update_question(); self.query_one("#options-list").focus()
+        rr = q.get('rationale', '')
+        if isinstance(rr, dict):
+            fr = f"**Option {ca} is correct:**\n{rr.get('correct','')}\n\n**Others:**\n"
+            wd = rr.get('wrong',{})
+            for k in sorted(wd.keys()):
+                if k != ca and wd[k].strip(): fr += f"- **{k}:** {wd[k]}\n"
+            fr += f"\n**Manual:** {rr.get('manual_reference','')}"
+        else: fr = str(rr)
+        modal = RationaleModal(fr, ic, ca)
+        if self.screen.has_class("light-mode"): modal.add_class("light-mode")
+        self.push_screen(modal, am)
 
     def action_switch_focus(self):
-        q = self.query_one("#q-list")
-        o = self.query_one("#options-list")
+        q, o = self.query_one("#q-list"), self.query_one("#options-list")
         if q.has_focus: o.focus()
         else: q.focus()
 
     def action_cursor_down(self):
-        if self.query_one("#options-list").has_focus: self.query_one("#options-list").action_cursor_down()
-        elif self.query_one("#q-list").has_focus: self.query_one("#q-list").action_cursor_down()
+        for w in ["#options-list", "#q-list"]:
+            if self.query_one(w).has_focus: self.query_one(w).action_cursor_down()
 
     def action_cursor_up(self):
-        if self.query_one("#options-list").has_focus: self.query_one("#options-list").action_cursor_up()
-        elif self.query_one("#q-list").has_focus: self.query_one("#q-list").action_cursor_up()
+        for w in ["#options-list", "#q-list"]:
+            if self.query_one(w).has_focus: self.query_one(w).action_cursor_up()
 
     def action_toggle_scenario(self):
         if self.scenario_text:
             modal = ScenarioModal(self.scenario_text)
-            if self.screen.has_class("light-mode"):
-                modal.add_class("light-mode")
+            if self.screen.has_class("light-mode"): modal.add_class("light-mode")
             self.push_screen(modal)
 
-if __name__ == "__main__":
-    ExamApp().run()
+if __name__ == "__main__": ExamApp().run()

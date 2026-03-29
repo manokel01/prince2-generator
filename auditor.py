@@ -18,6 +18,8 @@ def get_cat_id(cat_name):
 def export_to_markdown(data, timestamp):
     """Exports the JSON data into a clean Question Paper and a detailed Answer Key."""
     Path("exports").mkdir(exist_ok=True)
+    # Ensure the answers subdirectory exists
+    Path("exports/answers").mkdir(exist_ok=True, parents=True)
     
     questions_md = f"# PRINCE2 Practitioner Question Paper ({timestamp})\n\n"
     answers_md = f"# PRINCE2 Practitioner Answer & Rationale Key ({timestamp})\n\n"
@@ -64,10 +66,12 @@ def export_to_markdown(data, timestamp):
     answers_md += "| **Practices** | 14–49 | /36 |\n"
     answers_md += "| **Processes** | 50–70 | /21 |\n"
 
+    # Exporting files to respective paths
     with open(f"exports/questions_{timestamp}.md", "w") as f: f.write(questions_md)
-    with open(f"exports/answers_{timestamp}.md", "w") as f: f.write(answers_md)
+    # Redirected answer key to the answers subdirectory
+    with open(f"exports/answers/answers_{timestamp}.md", "w") as f: f.write(answers_md)
     
-    print(f"\n📄 Tablet-ready Question Paper and Answer Key generated in 'exports/'.")
+    print(f"\n📄 Tablet-ready Question Paper generated in 'exports/' and Answer Key in 'exports/answers/'.")
 
 def audit_exam_data(repair=False):
     file_path = Path("exam_data.json")
@@ -147,7 +151,6 @@ def audit_exam_data(repair=False):
     if blacklist_path.exists():
         try:
             with open(blacklist_path, "r", encoding="utf-8") as bf:
-                # Pre-convert to lowercase for fast matching
                 prohibited_names = [name.lower() for name in json.load(bf)]
         except Exception as e:
             print(f"  ⚠️ Warning: Could not load active_blacklist.json: {e}")
