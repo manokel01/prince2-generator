@@ -73,6 +73,7 @@ The pipeline outputs a nested `rationale` structure designed for granular UI fee
     },
     "manual_reference": "Section X, p.Y"
 }
+```
 
 ## Architecture & Workflow
 
