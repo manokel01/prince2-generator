@@ -743,31 +743,32 @@ class ExamApp(App):
             self.current_idx += 1
             self.update_question()
             return
-            
+
         opt_list = self.query_one("#options-list")
         choice = None
+
         for item in opt_list.children:
             if item.has_class("active-opt"):
                 choice = item.name
                 break
-                
+
         if not choice and opt_list.highlighted_child is not None:
             choice = opt_list.highlighted_child.name
-            
-        if not choice: 
+
+        if not choice:
             self.notify("Please select an answer first.", severity="warning")
             return
-            
+
         q = self.exam_data[self.current_idx]
         correct_ans = q.get('answer', '')
         is_correct = choice == correct_ans
-        
+
         if is_correct: self.score += 1
-        
+
         self.answered.add(self.current_idx)
         self.query_one("#score-label").update(f"Score: {self.score}/{len(self.exam_data)}")
         self.query_one("#progress").update(f"Progress: {len(self.answered)}/{len(self.exam_data)}")
-        
+
         try:
             target_item = self.query_one("#q-list").children[self.current_idx]
             target_item.query_one(".q-label", Label).update(f"Question {self.current_idx + 1} [✓]")
@@ -779,29 +780,31 @@ class ExamApp(App):
             self.update_question()
             self.query_one("#options-list").focus()
 
-        # V0.2: Dynamically parse the nested rationale schema
+        # Build rationale dynamically based on JSON structure
         raw_rationale = q.get('rationale', '')
         if isinstance(raw_rationale, dict):
+            # v0.2 Nested JSON formatting
             correct_text = raw_rationale.get('correct', '')
             wrong_dict = raw_rationale.get('wrong', {})
             manual_ref = raw_rationale.get('manual_reference', '')
-            
+
             formatted_rationale = f"**Why Option {correct_ans} is correct:**\n{correct_text}\n\n**Why the other options are wrong:**\n"
             for opt_key in sorted(wrong_dict.keys()):
-                if opt_key != correct_ans and wrong_dict.get(opt_key, '').strip():
+                if opt_key != correct_ans and wrong_dict[opt_key].strip():
                     formatted_rationale += f"- **Option {opt_key}:** {wrong_dict[opt_key]}\n"
-            
+
             if manual_ref:
                 formatted_rationale += f"\n**Manual reference:** {manual_ref}"
         else:
-            # Fallback for V0.1 flat strings
+            # v1 Backward Compatibility (flat string)
             formatted_rationale = str(raw_rationale)
 
         modal = RationaleModal(formatted_rationale, is_correct, correct_ans)
         if self.screen.has_class("light-mode"):
             modal.add_class("light-mode")
-            
+
         self.push_screen(modal, callback=after_modal)
+
 
     def action_switch_focus(self):
         q = self.query_one("#q-list")

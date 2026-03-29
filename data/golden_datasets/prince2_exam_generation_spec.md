@@ -121,14 +121,21 @@ The live exam scenario strips PRINCE2 titles from characters. Candidates must in
 
 ---
 
-## PART 4 — DYNAMIC SCENARIO PROFILING
+## PART 4 — DYNAMIC SCENARIO PROFILING (THE CONSTRAINT HUNTER)
 
-You will be provided with a specific project scenario inside the `<project_context>` tags. You MUST automatically analyze this text and adapt the tone, governance constraints, and vocabulary of your questions to perfectly match the active scenario.
+You will be provided with a specific project scenario inside the `<project_context>` tags. You MUST automatically analyze this text, extract its unique constraints, and weaponize them into Practitioner-level traps. 
 
-**Rules for Dynamic Scenario Alignment:**
-- **Tone & Language:** Mirror the sector of the scenario. If it is a public-sector project (e.g., local government), use formal, bureaucratic language focused on public accountability. If it is a private-sector project (e.g., financial services or tech), use corporate, profit-driven, or agile-oriented language.
-- **Strategic Constraints:** Identify the core drivers of the scenario (e.g., strict carbon limits, regulatory compliance deadlines, or fast-to-market commercial pressures). You MUST use these specific drivers as the foundation for business justification, risk, and issue questions.
-- **Ecosystem Alignment:** Pay strict attention to the organizational structure. Do not assume a standard customer/supplier relationship if the scenario defines an internal delivery team, a consortium, or a multi-layered governance board.
+You are STRICTLY FORBIDDEN from writing generic PRINCE2 questions. Every question must feel like it belongs exclusively to the active scenario.
+
+**Mandatory Extraction & Weaponization Directives:**
+1. **Identify the Project/Programme Boundary:** Scan the scenario for the overarching governance structure. If the scenario defines a Programme Board, a Portfolio Director, or an Investment Committee, you MUST build escalation traps that test whether the Project Board should handle a deviation or escalate it to these higher bodies based on the scenario's specific tolerance rules.
+2. **Weaponize Local Procedures:** Scan the scenario for customized management approaches. 
+   - *Example:* If the scenario mentions a "Unified Risk Register" or an "Automated Issue Form", you must use those specific tools in your distractors when testing the Risk or Issues practices.
+   - *Example:* If the scenario mandates a "1-month stage limit" due to agile delivery, use that specific time constraint to test the 'Manage by Stages' principle.
+3. **Weaponize Strategic Drivers:** Identify the core commercial or regulatory drivers. 
+   - *Example:* If the scenario is driven by "public-sector sustainability," use carbon limits in your Business Case traps. 
+   - *Example:* If the scenario is a "FinTech pivot to direct-to-consumer," use time-to-market pressure and consumer protection compliance as the triggers for your Quality and Scope change traps.
+4. **Tone & Language Alignment:** Mirror the sector of the scenario. Bureaucratic and formal for public-sector; cutthroat, agile, and profit-driven for commercial tech.
 
 ---
 
@@ -199,83 +206,3 @@ Each generated question must conform to this exact schema.
   "bloom_level": "[3|4]",
   "difficulty": "[easy|medium|hard]"
 }
-```
-
-> **Note:** The keys `question` and `answer` are used instead of `stem` and `correct_answer` to maintain backwards compatibility with the testing framework.
-
----
-
-### Step 3: Upgrade `app.py` for Nested JSON (with Backward Compatibility)
-
-I have updated your TUI's `submit_answer` logic. It now checks if `rationale` is a dictionary (your new v0.2 format) or a flat string (v0.1 backward compatibility).
-
-Replace the `submit_answer` method inside `app.py` with this:
-
-```python
-def submit_answer(self):
-    if self.current_idx in self.answered:
-        self.current_idx += 1
-        self.update_question()
-        return
-
-    opt_list = self.query_one("#options-list")
-    choice = None
-
-    for item in opt_list.children:
-        if item.has_class("active-opt"):
-            choice = item.name
-            break
-
-    if not choice and opt_list.highlighted_child is not None:
-        choice = opt_list.highlighted_child.name
-
-    if not choice:
-        self.notify("Please select an answer first.", severity="warning")
-        return
-
-    q = self.exam_data[self.current_idx]
-    correct_ans = q.get('answer', '')
-    is_correct = choice == correct_ans
-
-    if is_correct: self.score += 1
-
-    self.answered.add(self.current_idx)
-    self.query_one("#score-label").update(f"Score: {self.score}/{len(self.exam_data)}")
-    self.query_one("#progress").update(f"Progress: {len(self.answered)}/{len(self.exam_data)}")
-
-    try:
-        target_item = self.query_one("#q-list").children[self.current_idx]
-        target_item.query_one(".q-label", Label).update(f"Question {self.current_idx + 1} [✓]")
-        target_item.add_class("answered-item")
-    except: pass
-
-    def after_modal(_=None):
-        self.current_idx += 1
-        self.update_question()
-        self.query_one("#options-list").focus()
-
-    # Build rationale dynamically based on JSON structure
-    raw_rationale = q.get('rationale', '')
-    if isinstance(raw_rationale, dict):
-        # v0.2 Nested JSON formatting
-        correct_text = raw_rationale.get('correct', '')
-        wrong_dict = raw_rationale.get('wrong', {})
-        manual_ref = raw_rationale.get('manual_reference', '')
-
-        formatted_rationale = f"**Why Option {correct_ans} is correct:**\n{correct_text}\n\n**Why the other options are wrong:**\n"
-        for opt_key in sorted(wrong_dict.keys()):
-            if opt_key != correct_ans and wrong_dict[opt_key].strip():
-                formatted_rationale += f"- **Option {opt_key}:** {wrong_dict[opt_key]}\n"
-
-        if manual_ref:
-            formatted_rationale += f"\n**Manual reference:** {manual_ref}"
-    else:
-        # v1 Backward Compatibility (flat string)
-        formatted_rationale = str(raw_rationale)
-
-    modal = RationaleModal(formatted_rationale, is_correct, correct_ans)
-    if self.screen.has_class("light-mode"):
-        modal.add_class("light-mode")
-
-    self.push_screen(modal, callback=after_modal)
-```

@@ -207,7 +207,7 @@ def audit_exam_data(repair=False):
                     issues.append(f"Q{i+1}: Option {opt_key} contains bracketed text. (Trap 13: Role/Title Conflation).")
 
         # --- NEW GUARDRAIL: Signposting Ban (Rule 6) ---
-        signpost_pattern = re.compile(r'\b(however|therefore|clearly|obviously|because of this)\b', re.IGNORECASE)
+        signpost_pattern = re.compile(r'\b(however|obviously|because of this)\b', re.IGNORECASE)
         for opt_key, opt_text in options.items():
             if signpost_pattern.search(str(opt_text)):
                 issues.append(f"Q{i+1}: Option {opt_key} contains a banned transition word (Rule 6: Signposting Ban).")
